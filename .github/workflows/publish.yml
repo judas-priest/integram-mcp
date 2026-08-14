@@ -1,0 +1,103 @@
+# Выкладка integram-mcp в npm.
+#
+# Этот файл живёт в монорепозитории, но исполняется НЕ здесь: воркфлоу
+# `sync-mcp-server.yml` кладёт его в публичное зеркало
+# judas-priest/integram-mcp как `.github/workflows/publish.yml`, и запускается
+# он там. Так требует npm trusted publishing: доверенным издателем объявляется
+# конкретный воркфлоу конкретного репозитория, а provenance-подпись GitHub
+# выдаёт только публичным репозиториям.
+#
+# Токена npm здесь нет и быть не должно. Проверка подлинности идёт по OIDC:
+# GitHub выдаёт короткоживущий токен на один прогон, украсть и переиспользовать
+# его нельзя. Отсюда `permissions: id-token: write` — без него OIDC не работает.
+# Оговорка, которую стоит помнить: provenance доказывает, ГДЕ собрано, а не что
+# исходник добросовестный, — коммит с закладкой проедет через настоящую подпись.
+#
+# Разовая настройка на npmjs.com (делается человеком, из браузера):
+#   Package settings → Trusted publisher → GitHub Actions
+#     Organization or user: judas-priest
+#     Repository:           integram-mcp
+#     Workflow filename:    publish.yml
+#     Environment:          (пусто)
+#   После этого — Publishing access → «Require two-factor authentication and
+#   disallow tokens»: тогда выложить сможет только этот воркфлоу.
+
+name: Publish to npm
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write   # обязательно для OIDC
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest   # OIDC не работает с self-hosted раннерами
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 24: trusted publishing требует npm >= 11.5.1 и Node >= 22.14.
+      # registry-url обязателен — без него OIDC не подхватывается.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Версия npm (нужна >= 11.5.1)
+        run: |
+          npm install -g npm@latest
+          npm --version
+
+      - name: Согласованность версий
+        run: npm test
+
+      # Зеркало обновляется на каждую правку каталога, а выкладка нужна только
+      # когда номер новый. Проверяем по реестру, а не по признаку «что-то
+      # изменилось»: так прогон идемпотентен и повтор ничего не ломает.
+      - name: Эта версия уже в npm?
+        id: check
+        run: |
+          V=$(node -p "require('./package.json').version")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if npm view "integram-mcp@$V" version >/dev/null 2>&1; then
+            echo "Версия $V уже выложена — публиковать нечего."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Версии $V в реестре нет — публикуем."
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Состав архива
+        if: steps.check.outputs.publish == 'true'
+        run: npm pack --dry-run
+
+      # Флаг --provenance не нужен: при trusted publishing подпись ставится сама.
+      - name: npm publish
+        if: steps.check.outputs.publish == 'true'
+        run: npm publish
+
+      # Выложенное обязано совпасть с исходником побайтно. Проверяем скачиванием
+      # архива из реестра, а не доверием к тому, что publish отработал: под
+      # неизменяемым адресом версии обязан лежать ровно тот файл, что собран.
+      - name: Сверка выложенного с исходником
+        if: steps.check.outputs.publish == 'true'
+        run: |
+          V="${{ steps.check.outputs.version }}"
+          for i in 1 2 3 4 5; do
+            sleep 5
+            if curl -sSLf -o /tmp/pkg.tgz "$(npm view "integram-mcp@$V" dist.tarball)"; then break; fi
+            echo "архив ещё не отдаётся, попытка $i"
+          done
+          tar -xzf /tmp/pkg.tgz -C /tmp
+          for f in index.js README.md; do
+            a=$(sha256sum "/tmp/package/$f" | cut -d' ' -f1)
+            b=$(sha256sum "$f" | cut -d' ' -f1)
+            if [ "$a" != "$b" ]; then
+              echo "РАСХОЖДЕНИЕ в $f: в npm $a, в репозитории $b" >&2
+              exit 1
+            fi
+            echo "$f: $a — совпадает"
+          done
