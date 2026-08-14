@@ -1087,9 +1087,14 @@ Organizations are addressed by \`slug\`, never by a numeric id.
 - create_org(name, slug) — create a new organization. **Requires confirmation.**
 - update_org(slug, name?) — update organization. **Requires confirmation.**
 - delete_org(slug) — delete organization. **Requires confirmation.**
-- list_org_members(slug) — list members of an organization
+- list_org_members(slug, page?, pageSize?) — list members of an organization, one page at a time (default 50). Compare items length with total and ask for the next page.
 - add_org_member(slug, email, role?) — add member by e-mail. **Requires confirmation.**
 - remove_org_member(slug, memberId) — remove member by membership id (from list_org_members). **Requires confirmation.**
+- transfer_org_ownership(slug, userId) — hand ownership to another member; \`userId\` is the member's user id, not the membership id. The former owner stays an admin. **Requires confirmation.**
+- leave_org(slug) — leave the organization yourself. An owner must transfer ownership first; the last admin must promote a successor first. **Requires confirmation.**
+- invite_to_org(slug, email, role) — invite by e-mail (role: admin, editor or viewer; default viewer). Works for people without an account; the invitation lives 7 days. **Requires confirmation.**
+- revoke_org_invitation(slug, invitationId) — revoke a pending invitation (id from list_org_invitations).
+- list_org_invitations(slug) — invitations of the organization: pending, accepted and revoked.
 
 ## Timeseries
 
