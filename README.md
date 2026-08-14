@@ -15,7 +15,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=https://ai2o.online \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.5
+  -- npx -y integram-mcp@0.7.6
 ```
 
 Ставить ничего не нужно: `npx` скачает пакет сам.
@@ -43,7 +43,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=http://localhost:8081 \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.5
+  -- npx -y integram-mcp@0.7.6
 ```
 
 Удалить: `claude mcp remove integram`
@@ -57,7 +57,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.5"],
+      "args": ["-y", "integram-mcp@0.7.6"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -77,7 +77,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.5"],
+      "args": ["-y", "integram-mcp@0.7.6"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -97,7 +97,7 @@ claude mcp add integram \
 - **в `stderr`** — строкой `Доступна версия X (запущена Y)`. Это единственный поток, куда спецификация stdio-транспорта разрешает писать что угодно; в `stdout` нельзя ничего, кроме JSON-RPC. Клиент вправе `stderr` проигнорировать — поэтому канал не один;
 - **припиской к ответу первого вызова инструмента** — единственный канал, доходящий до модели и через неё до человека. Ровно один раз за запуск процесса.
 
-Как пакет попадает в npm: пуш в `master` основного репозитория → каталог зеркалится в публичный [judas-priest/integram-mcp](https://github.com/judas-priest/integram-mcp) → тамошний `publish.yml` выкладывает по OIDC, если такого номера в реестре ещё нет, и сверяет sha256 отданного архива с исходником. Номер поднимает pre-commit, `npm publish` руками не запускается.
+Как пакет попадает в npm: пуш в `master` основного репозитория → каталог зеркалится в публичный [judas-priest/integram-mcp](https://github.com/judas-priest/integram-mcp) → тамошний `publish.yml` выкладывает по OIDC, если такого номера в реестре ещё нет, и сверяет sha256 отданного архива с исходником. Номер поднимает pre-commit. Токенов в цепочке нет, и `npm publish` руками не работает: на npm включено «require 2FA and disallow bypass 2fa tokens», выложить может только этот воркфлоу. У каждой версии, вышедшей этим путём, на странице пакета стоит отметка provenance.
 
 Обновиться — заменить номер версии в конфиге MCP и перезапустить клиент:
 
