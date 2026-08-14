@@ -1,0 +1,21 @@
+module.exports = {
+  root: true,
+  env: { node: true, es2022: true },
+  parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
+  rules: {
+    'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    'no-undef': 'error',
+    'no-constant-condition': 'warn',
+    'no-debugger': 'warn',
+    'no-duplicate-case': 'error',
+    'no-empty': ['warn', { allowEmptyCatch: true }],
+    'no-extra-semi': 'warn',
+    'no-unreachable': 'warn',
+    'no-unsafe-finally': 'error',
+    'eqeqeq': ['warn', 'smart'],
+    'no-var': 'error',
+    'prefer-const': ['warn', { destructuring: 'all' }],
+    'no-throw-literal': 'error',
+  },
+  ignorePatterns: ['node_modules/'],
+};

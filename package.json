@@ -1,0 +1,36 @@
+{
+  "name": "integram-mcp",
+  "version": "0.7.4",
+  "type": "module",
+  "description": "MCP server for Integram — connect AI assistants to your workspace via Model Context Protocol",
+  "mcpName": "io.github.judas-priest/integram",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/judas-priest/integram-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "integram",
+    "ai",
+    "tools"
+  ],
+  "bin": {
+    "integram-mcp": "./index.js"
+  },
+  "scripts": {
+    "test": "node scripts/check-versions.mjs",
+    "prepublishOnly": "node scripts/check-versions.mjs"
+  },
+  "files": [
+    "index.js"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "undici": "^7.10.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1"
+  }
+}
