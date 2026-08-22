@@ -702,7 +702,7 @@ create_automation({ name, trigger: { type, typeId }, active?, condition, actions
 
 Role-based access control. Activate via search_tools("permissions").
 
-- list_members — all workspace users with roles
+- list_members — all workspace users with roles. Returns { items:[{userId,email,name,username,role,roleId,roleName,lastSeenAt}], total }; lastSeenAt is the member's last visit to this workspace (null if never). It is throttled to 5-minute granularity, so treat it as "last seen within ~5 min", not an exact timestamp
 - list_roles — all roles and their access levels per table
 - get_user_permissions(username or userId) — what a specific user can access
 - set_grant(roleId or username, targetTypeId, level) — level: NONE/READ/WRITE/ADMIN. targetTypeId=0 = all tables.
@@ -1696,6 +1696,71 @@ async function handleDeleteWorkspace(slug) {
 
 // ─── clone_workspace handler ──────────────────────────────────────────────────
 
+/**
+ * Чего в клоне нет ПО УСТРОЙСТВУ — одной строкой и без потерь.
+ *
+ * Перечень отдаёт реестр платформы (registry/workspace-carry.js) записями вида
+ * {table, kind, home, why} — 54 штуки. Печатать их подряд нельзя: в простыне из
+ * 54 имён тонет ровно то, ради чего перечень и нужен. Печатать усечённо — тоже
+ * нельзя: «Not carried by design: …» читается как ПОЛНЫЙ перечень, и раньше он
+ * им не был (13 имён из 54).
+ *
+ * Отсюда деление по роду. Числом — журналы и выводимое: у клона своя жизнь с
+ * чистого листа, а выводимое он отстроит сам; знать, что их 46 и 3, достаточно.
+ * ВСЁ ОСТАЛЬНОЕ — поимённо: это не след прошедшего, а отсутствие того, чем
+ * область пользовалась, и узнать об этом хозяин клона обязан из ответа, а не из
+ * пустого раздела через неделю.
+ *
+ * ПОЧЕМУ ЗАШИТ ТОЛЬКО СВОРАЧИВАЕМЫЙ ПЕРЕЧЕНЬ. Реестр рода объявляет на сервере
+ * (registry/workspace-carry.js, KINDS), а пакет выложен в npm и живёт дольше
+ * сервера, к которому подключён: спросить у реестра ему нечем, новый род приедет
+ * в ответе раньше обновления. Перечень называемых поимённо здесь стоял тоже — и
+ * незнакомый род молча выпадал из печати, оставаясь в числе заголовка: замер
+ * 20.08.2026, запись {kind:'право'} давала «(55)» и ни одного упоминания имени.
+ * Это ровно тот изъян, против которого печать и писалась. Теперь называется
+ * ВСЁ, кроме двух названных родов: отстанет этот перечень — незнакомое станет
+ * многословным, а не пропадёт. Направление ошибки выбрано, а не оставлено.
+ */
+function notCarriedLine(list) {
+  // Сервер прежней выкладки отдаёт имена строками: рода у них нет, и такая
+  // запись называется поимённо — свернуть неизвестное числом значит потерять его.
+  const items = list.map(x => (typeof x === 'string' ? { table: x, kind: null } : x));
+
+  // Единственное зашитое знание о родах: что вправе свернуться числом.
+  const FOLD = { 'журнал': 'logs', 'выводимое': 'derived tables' };
+  // Подписи родов, называемых поимённо. Незнакомый род печатается своим именем —
+  // отсутствие подписи не повод не назвать записи.
+  const LABEL = { 'секрет': 'secrets', 'содержимое': 'content', 'настройка': 'settings' };
+  const ORDER = ['secrets', 'content', 'settings'];
+
+  const named = new Map();   // подпись рода → имена таблиц
+  const folded = new Map();  // подпись рода → счёт
+  for (const item of items) {
+    const kind = item.kind || null;
+    if (kind && FOLD[kind]) {
+      folded.set(FOLD[kind], (folded.get(FOLD[kind]) || 0) + 1);
+      continue;
+    }
+    // Пустой ключ — записи без рода (сервер прежней выкладки): подписывать нечем.
+    const label = kind ? (LABEL[kind] || kind) : '';
+    if (!named.has(label)) named.set(label, []);
+    named.get(label).push(item.table);
+  }
+
+  // Порядок: известные рода как прежде, следом незнакомые, последними —
+  // безродные. Внутри рода — порядок реестра.
+  const rank = (label) => (label === '' ? 2 : ORDER.indexOf(label) === -1 ? 1 : 0);
+  const parts = [...named.entries()]
+    .sort((a, b) => rank(a[0]) - rank(b[0])
+      || (rank(a[0]) === 0 ? ORDER.indexOf(a[0]) - ORDER.indexOf(b[0]) : a[0].localeCompare(b[0])))
+    .map(([label, names]) => (label ? `${label} — ${names.join(', ')}` : names.join(', ')));
+
+  const tail = [...folded.entries()].map(([label, n]) => `${n} ${label}`);
+  if (tail.length) parts.push(`plus ${tail.join(' and ')} (source history and data the clone rebuilds itself)`);
+
+  return `Not carried by design (${items.length}): ${parts.join('; ')}.`;
+}
+
 async function handleCloneWorkspace({ sourceSlug, name, slug, includeDocuments, includeMembers }) {
   if (!sourceSlug || !name || !slug) {
     return { content: [{ type: 'text', text: 'Error: sourceSlug, name, and slug are required' }], isError: true };
@@ -1703,8 +1768,11 @@ async function handleCloneWorkspace({ sourceSlug, name, slug, includeDocuments, 
   try {
     await ensureAuth();
     const body = { name, slug };
-    if (includeDocuments !== undefined) body.includeDocuments = includeDocuments;
-    if (includeMembers !== undefined) body.includeMembers = includeMembers;
+    // Имена полей — те, что объявляет маршрут (include_documents / include_members).
+    // Zod срезает неизвестные поля молча: в camelCase клон уезжал без документов
+    // и без участников, а вызов при этом выглядел успешным.
+    if (includeDocuments !== undefined) body.include_documents = includeDocuments;
+    if (includeMembers !== undefined) body.include_members = includeMembers;
     const data = await apiFetch(`/api/v2/workspaces/${sourceSlug}/clone`, {
       method: 'POST',
       body: JSON.stringify(body),
@@ -1723,8 +1791,20 @@ async function handleCloneWorkspace({ sourceSlug, name, slug, includeDocuments, 
     }
     await server.sendToolListChanged();
 
+    // Чего в клоне НЕТ — обязано быть сказано словами. Отсутствующее опаснее
+    // пустого: пустой раздел зритель видит, отсутствующий — нет.
+    const gaps = [];
+    if (ws.notCarried?.length) gaps.push(notCarriedLine(ws.notCarried));
+    if (ws.carryFailed?.length) {
+      gaps.push(`Failed to carry: ${ws.carryFailed.map(f => `${f.table} (${f.reason})`).join('; ')}.`);
+    }
+    if (ws.carryPartial?.length) {
+      gaps.push(`Carried partially: ${ws.carryPartial
+        .map(p => `${p.table} (columns missing in target: ${[...p.missing, ...p.unsafe].join(', ')})`).join('; ')}.`);
+    }
+
     return {
-      content: [{ type: 'text', text: `Workspace "${sourceSlug}" cloned into "${ws.name}" (slug: ${ws.slug}). Automatically switched to it. ${activeTools.size} core tools loaded.` }],
+      content: [{ type: 'text', text: `Workspace "${sourceSlug}" cloned into "${ws.name}" (slug: ${ws.slug}). Automatically switched to it. ${activeTools.size} core tools loaded.${gaps.length ? ' ' + gaps.join(' ') : ''}` }],
     };
   } catch (err) {
     return { content: [{ type: 'text', text: `Error cloning workspace: ${err.message}` }], isError: true };
