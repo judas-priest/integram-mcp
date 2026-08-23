@@ -234,7 +234,7 @@ async function fetchTools() {
 
 // ─── MCP Server (low-level — we pass raw JSON Schema, not Zod) ──────────────
 
-const INSTRUCTIONS = `Integram — workspace-based platform: tables, documents, reports, automations, permissions, forms, webhooks, files, knowledge graph.
+export const INSTRUCTIONS = `Integram — workspace-based platform: tables, documents, reports, automations, permissions, forms, webhooks, files, knowledge graph.
 Server: ${BASE_URL}
 
 ## Getting started
@@ -683,7 +683,7 @@ Block-based documents (like Notion). Activate via search_tools("documents").
 - Versions: list_doc_versions, get_doc_version(docId, versionId), restore_doc_version
 - Block history: get_block_history(docId, blockId, limit?, offset?)
 - Purge: purge_document(docId) — permanently delete trashed doc (requires confirmation)
-- Sharing: list_doc_sharing, grant_doc_access(docId, userId, level), revoke_doc_access
+- Sharing: list_doc_sharing, grant_doc_access(docId, targetUserId, role: viewer|editor|admin), revoke_doc_access
 
 ## Automations
 
@@ -744,7 +744,7 @@ create_form(typeId, config, expiresAt) — generates a public URL for external u
 ## Bulk operations
 
 Activate via search_tools("bulk").
-- bulk_create(typeId, records) — create many records at once
+- bulk_create(typeId, rows, parentId?) — create many records at once
 - bulk_update(updates: [{ objId, fields }]) — update many records
 - bulk_delete(objIds) — delete many records (requires confirmation)
 - autofill_batch(typeId, reqId, objectIds) — run AI autofill on multiple rows
@@ -759,7 +759,7 @@ Activate via search_tools("workspace").
 ## Dashboards
 
 Visual dashboards with widgets. Activate via search_tools("workspace").
-- list_dashboards, get_dashboard(id), create_dashboard(name, widgets), update_dashboard, delete_dashboard
+- list_dashboards, get_dashboard(id), create_dashboard(title, widgets, layouts?), update_dashboard, delete_dashboard
 
 ## Workspace invitations
 
@@ -789,7 +789,7 @@ External data integrations. Activate via search_tools("workspace").
 ## Comments & reactions
 
 Activate via search_tools("comments").
-- list_comments(objId), create_comment(objId, text), update_comment, delete_comment
+- list_comments(objId), create_comment(objId, body, parentCommentId?), update_comment, delete_comment
 - add_reaction(commentId, emoji), remove_reaction
 
 ## History & rollback
@@ -1827,13 +1827,28 @@ const BUILT_IN_TOOL_DEFS = [
 // Group alias map — maps Russian/English SYNONYMS to TOOL_DEFS group names.
 // Exact group names are matched dynamically against the live catalog (allTools),
 // so a new backend group is picked up automatically — add here only synonyms.
+//
+// A value may be an ARRAY when one word honestly names two groups. That is not a
+// convenience: `automations` is the name of a 5-tool group (run details, webhook
+// delivery log) AND the everyday word for editing automations, which lives in
+// `workspace`. Sending the word to one group only silently hid the other half —
+// the prompt said `search_tools("automations")` and then named `create_automation`,
+// which the query could never activate. Same shape for connectors and forms.
 const GROUP_ALIASES = {
   документ: 'docs', документы: 'docs', docs: 'docs', doc: 'docs',
   отчёт: 'reports', отчеты: 'reports', отчёты: 'reports', report: 'reports', reports: 'reports',
   схема: 'schema', таблица: 'schema', колонк: 'schema', schema: 'schema',
   права: 'grants', роли: 'grants', доступ: 'grants', grants: 'grants',
-  автоматизац: 'workspace', вебхук: 'workspace', коннектор: 'workspace', форм: 'workspace',
-  файл: 'workspace', файлы: 'workspace',
+  permissions: 'grants', permission: 'grants', acl: 'grants', role: 'grants', member: 'grants',
+  автоматизац: ['workspace', 'automations'], коннектор: 'workspace', форм: 'workspace',
+  // Вебхук заведён в `workspace`, а журнал его доставки (`get_webhook_deliveries`,
+  // `retry_webhook_delivery`) — в `automations`. Раздел подсказки называет и то и другое.
+  вебхук: ['workspace', 'automations'],
+  webhook: ['workspace', 'automations'], webhooks: ['workspace', 'automations'],
+  form: 'workspace', forms: 'workspace',
+  connector: 'workspace', connectors: 'workspace', dashboard: 'workspace', dashboards: 'workspace',
+  invitation: 'workspace', invitations: 'workspace', backup: 'workspace', audit: 'workspace',
+  файл: 'workspace', файлы: 'workspace', file: 'workspace', files: 'workspace',
   портал: 'portal', телеграм: 'portal', telegram: 'portal', portal: 'portal',
   граф: 'graph', связи: 'graph', graph: 'graph',
   память: 'memory', memory: 'memory', запомни: 'memory',
@@ -1847,8 +1862,9 @@ const GROUP_ALIASES = {
   advisor: 'advisor', совет: 'advisor', консультант: 'advisor',
   agents: 'agents', агент: 'agents', делегир: 'agents',
   orgs: 'orgs', организаци: 'orgs', org: 'orgs',
-  automations: 'automations', automation: 'automations',
-  history: 'history', истори: 'history',
+  automations: ['automations', 'workspace'], automation: ['automations', 'workspace'],
+  // Раздел «History & rollback» называет и `get_object_backlinks`, а оно в `objects`.
+  history: ['history', 'objects'], истори: ['history', 'objects'],
   lookups: 'lookups', lookup: 'lookups', справочник: 'lookups',
   'meta-kb': 'meta-kb', metakb: 'meta-kb', дебат: 'meta-kb', дискусси: 'meta-kb',
   pm: 'pm', проект: 'pm', задач: 'pm', спринт: 'pm', канбан: 'pm', бэклог: 'pm', issue: 'pm', sprint: 'pm', backlog: 'pm', board: 'pm',
@@ -1856,15 +1872,24 @@ const GROUP_ALIASES = {
   формализ: 'nightcall', formaliz: 'nightcall', governance: 'nightcall', evidence: 'nightcall',
 };
 
-async function handleSearchTools(query) {
-  try {
-    const q = query.toLowerCase();
-    const words = q.split(/\s+/).filter(Boolean);
-    // Live group catalog — single source of truth, new backend groups appear automatically
-    const knownGroups = [...new Set(allTools.map(t => t.group).filter(g => g && g !== 'core'))];
-
-    const available = t => !activeTools.has(t.name) && !BUILT_IN_NAMES.has(t.name);
-    const toolText = t => `${t.name} ${t.description || ''} ${t.group || ''}`.toLowerCase();
+/**
+ * Pure selection step of search_tools — exported so the guard test can run the REAL
+ * matcher over the REAL catalog instead of a copy of it. A copied matcher is how the
+ * prompt drifted away from what activation actually returns in the first place.
+ *
+ * @param {string} query
+ * @param {Array<{name:string,description?:string,group?:string}>} catalog
+ * @param {(t:object)=>boolean} available
+ * @returns {{matched:Array<object>, groupExact:number, total:number, droppedByGroup:Object<string,number>}}
+ */
+export function selectTools(query, catalog, available = () => true) {
+  const q = String(query).toLowerCase();
+  const words = q.split(/\s+/).filter(Boolean);
+  // Live group catalog — single source of truth, new backend groups appear automatically
+  const knownGroups = [...new Set(catalog.map(t => t.group).filter(g => g && g !== 'core'))];
+  const toolText = t => `${t.name} ${t.description || ''} ${t.group || ''}`.toLowerCase();
+  const allTools = catalog;
+  {
 
     // Phase 1: group-based match — if any query word names a group (exact, or prefix
     // when at least 4 chars to avoid short-name false hits) or hits a synonym alias,
@@ -1876,13 +1901,22 @@ async function handleSearchTools(query) {
         if (w === g || (minLen >= 4 && (g.startsWith(w) || w.startsWith(g)))) matchedGroups.add(g);
       }
       for (const [alias, group] of Object.entries(GROUP_ALIASES)) {
-        if (alias.startsWith(w) || w.startsWith(alias)) matchedGroups.add(group);
+        if (alias.startsWith(w) || w.startsWith(alias)) {
+          for (const g of Array.isArray(group) ? group : [group]) matchedGroups.add(g);
+        }
       }
     }
 
     let matched;
+    // Tools that came in because the query NAMED their group. These are exempt from
+    // the result cap below: asking for a group and getting an unannounced 30-tool
+    // prefix of it makes activation-by-name meaningless — `workspace` is 121 tools,
+    // and the prompt names tools that sit past position 30 in every one of them.
+    // A vague query is still capped; an explicit group request is honoured in full.
+    let groupExact = 0;
     if (matchedGroups.size > 0) {
       matched = allTools.filter(t => available(t) && matchedGroups.has(t.group));
+      groupExact = matched.length;
       // Also include tools from other groups where ALL words match
       const groupSet = new Set(matched.map(t => t.name));
       const extra = allTools.filter(t =>
@@ -1922,8 +1956,85 @@ async function handleSearchTools(query) {
       }
     }
 
-    // Cap at 30
-    matched = matched.slice(0, 30);
+    // Cap at 30 — but SAY SO. Six groups are larger than the cap (`workspace` is
+    // 121 tools), so activating one by name used to answer "Activated 30 tools: …"
+    // and drop the rest without a word. The model read that as the whole group and
+    // called a tool it had never been given. A cap is right — dumping 121 defs into
+    // the tool list is worse — but a silent one turns absence into a lie.
+    const RESULT_CAP = 30;
+    const keep = Math.max(RESULT_CAP, groupExact);
+    const totalMatched = matched.length;
+    const droppedByGroup = {};
+    if (totalMatched > keep) {
+      for (const t of matched.slice(keep)) {
+        const g = t.group || '(no group)';
+        droppedByGroup[g] = (droppedByGroup[g] || 0) + 1;
+      }
+    }
+    matched = matched.slice(0, keep);
+
+    return { matched, groupExact, total: totalMatched, droppedByGroup, knownGroups, words, RESULT_CAP };
+  }
+}
+
+/**
+ * Текст ответа `search_tools` — отдельно от побочных действий, чтобы его можно было
+ * проверить, не поднимая сервер.
+ *
+ * Пустой ответ бывает ДВУХ родов, и раньше они звучали одинаково: «ничего не совпало» и
+ * «всё совпавшее уже активно». Второе — не отказ, а сообщение об успехе, сказанное
+ * словами отказа: модель читала «not found», переставала верить имени группы и начинала
+ * подбирать синонимы, имея все её инструменты на руках. Замер 23.08.2026: третий подряд
+ * `search_tools("pm")` отвечал `No tools found matching "pm"` и в той же строке
+ * перечислял `pm` среди доступных групп.
+ *
+ * @param {object} p
+ * @param {string} p.query исходный запрос
+ * @param {string[]} p.activatedNames что активировано этим вызовом
+ * @param {number} p.totalMatched сколько совпало ДО потолка (с учётом предиката)
+ * @param {Object<string,number>} p.droppedByGroup срезано потолком, по группам
+ * @param {number} p.resultCap сам потолок
+ * @param {string[]} p.builtinNames совпавшие встроенные — они и так доступны
+ * @param {string[]} p.alreadyActiveNames совпавшие, но активированные РАНЬШЕ
+ * @param {string[]} p.knownGroups живой перечень групп каталога
+ * @returns {string}
+ */
+export function buildSearchToolsText(p) {
+  const parts = [];
+  if (p.activatedNames.length) {
+    parts.push(`Activated ${p.activatedNames.length} tools: ${p.activatedNames.join(', ')}.`);
+  }
+  if (p.totalMatched > p.activatedNames.length) {
+    const rest = Object.entries(p.droppedByGroup)
+      .sort((a, b) => b[1] - a[1])
+      .map(([g, n]) => `${g} +${n}`)
+      .join(', ');
+    parts.push(
+      `NOT activated: ${p.totalMatched - p.activatedNames.length} more matched but were cut at the ${p.resultCap}-tool limit (${rest}). ` +
+      `They are NOT available — narrow the query to reach them, e.g. search_tools("${p.query} <what you need>").`
+    );
+  }
+  if (p.builtinNames.length) {
+    parts.push(`Already available (built-in): ${p.builtinNames.join(', ')}.`);
+  }
+  if (parts.length) return parts.join(' ');
+
+  // Ничего не активировано. Разбираем, почему именно.
+  if (p.alreadyActiveNames.length) {
+    return `Nothing new: all ${p.alreadyActiveNames.length} tools matching "${p.query}" are already active ` +
+           `(${p.alreadyActiveNames.join(', ')}). Use them directly — no further search_tools call is needed.`;
+  }
+  const groupsMsg = p.knownGroups.length
+    ? p.knownGroups.slice().sort().join(', ')
+    : '(no tools loaded — select a workspace first)';
+  return `No tools found matching "${p.query}". Available groups: ${groupsMsg}`;
+}
+
+async function handleSearchTools(query) {
+  try {
+    const available = t => !activeTools.has(t.name) && !BUILT_IN_NAMES.has(t.name);
+    const { matched, total: totalMatched, droppedByGroup, knownGroups, words, RESULT_CAP } =
+      selectTools(query, allTools, available);
 
     // Search built-in tools (always available, just inform)
     const matchedBuiltins = BUILT_IN_TOOL_DEFS.filter(t => {
@@ -1940,20 +2051,29 @@ async function handleSearchTools(query) {
       await server.sendToolListChanged();
     }
 
-    const parts = [];
-    if (matched.length) parts.push(`Activated ${matched.length} tools: ${matched.map(t => t.name).join(', ')}.`);
-    if (matchedBuiltins.length) parts.push(`Already available (built-in): ${matchedBuiltins.map(t => t.name).join(', ')}.`);
+    // Совпавшие, но активированные РАНЬШЕ. Второй прогон отбора без предиката
+    // доступности — единственный способ это узнать: предикат уходит внутрь отбора и
+    // делает «нет совпадений» неотличимым от «всё уже активно». Прогон чистый и идёт
+    // по памяти, так что второй раз он стоит дёшево, и делается только когда
+    // активировать оказалось нечего.
+    const alreadyActiveNames = matched.length
+      ? []
+      : selectTools(query, allTools)
+          .matched
+          .filter(t => activeTools.has(t.name))
+          .map(t => t.name);
 
-    if (!parts.length) {
-      const groupsMsg = knownGroups.length
-        ? knownGroups.sort().join(', ')
-        : '(no tools loaded — select a workspace first)';
-      return {
-        content: [{ type: 'text', text: `No tools found matching "${query}". Available groups: ${groupsMsg}` }],
-      };
-    }
-
-    return { content: [{ type: 'text', text: parts.join(' ') }] };
+    const text = buildSearchToolsText({
+      query,
+      activatedNames: matched.map(t => t.name),
+      totalMatched,
+      droppedByGroup,
+      resultCap: RESULT_CAP,
+      builtinNames: matchedBuiltins.map(t => t.name),
+      alreadyActiveNames,
+      knownGroups,
+    });
+    return { content: [{ type: 'text', text }] };
   } catch (err) {
     return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
   }
@@ -2017,6 +2137,7 @@ async function handleSwitchWorkspace(input) {
 // ─── Auto-update from git ────────────────────────────────────────────────────
 
 import { execSync } from 'child_process';
+import { realpathSync } from 'fs';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -2071,7 +2192,23 @@ async function main() {
   log('MCP server running on stdio');
 }
 
-main().catch(err => {
-  process.stderr.write(`[integram-mcp] Fatal: ${err.message}\n`);
-  process.exit(1);
-});
+// Run only when executed as a program, not when imported. The guard test imports
+// `selectTools` from this file; without this check the import would log in, open a
+// stdio transport and hang the run. realpathSync is required, not decoration: npm
+// installs the bin as a SYMLINK, so process.argv[1] is the link path while
+// import.meta.url is the real one, and a naive comparison would make `npx
+// integram-mcp` start nothing at all.
+const isProgram = (() => {
+  try {
+    return process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+})();
+
+if (isProgram) {
+  main().catch(err => {
+    process.stderr.write(`[integram-mcp] Fatal: ${err.message}\n`);
+    process.exit(1);
+  });
+}
