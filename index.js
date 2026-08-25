@@ -1863,6 +1863,12 @@ const GROUP_ALIASES = {
   kag: 'kag', знани: 'kag',
   tts: 'ai', озвучк: 'ai', голос: 'ai', speak: 'ai',
   advisor: 'advisor', совет: 'advisor', консультант: 'advisor',
+  // Словами, которыми спрашивают справку. Без них войти в группу можно было
+  // только словом `advisor`, которого спрашивающий не знает, а «документация»
+  // уводила в `docs` — документы воркспейса. `справочник` намеренно НЕ здесь:
+  // ниже он отдан `lookups`, и это верно — в Integram так зовут таблицу-справочник.
+  документац: 'advisor', справк: 'advisor', инструкц: 'advisor',
+  руководств: 'advisor', help: 'advisor', guide: 'advisor', устроен: 'advisor',
   agents: 'agents', агент: 'agents', делегир: 'agents',
   orgs: 'orgs', организаци: 'orgs', org: 'orgs',
   automations: ['automations', 'workspace'], automation: ['automations', 'workspace'],
