@@ -15,7 +15,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=https://ai2o.online \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.13
+  -- npx -y integram-mcp@0.7.14
 ```
 
 Ставить ничего не нужно: `npx` скачает пакет сам.
@@ -43,7 +43,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=http://localhost:8081 \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.13
+  -- npx -y integram-mcp@0.7.14
 ```
 
 Удалить: `claude mcp remove integram`
@@ -57,7 +57,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.13"],
+      "args": ["-y", "integram-mcp@0.7.14"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -77,7 +77,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.13"],
+      "args": ["-y", "integram-mcp@0.7.14"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -170,8 +170,8 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 | **schema** | Таблицы, колонки, кнопки (AI/HTTP/script), вычисляемые колонки, валидация | 30 |
 | **memory** | Память агента, инсайты, процедуры, противоречия | 22 |
 | **meta-kb** | Дебаты: параллельные эксперты, LLM-синтез, курирование знаний | 22 |
+| **core** | CRUD объектов, поиск, граф, комментарии, bulk-операции | 17 |
 | **objects** | Перемещение, дублирование, переупорядочивание записей, корзина, обратные ссылки | 17 |
-| **core** | CRUD объектов, поиск, граф, комментарии, bulk-операции | 16 |
 | **reports** | Отчёты: CRUD, колонки, JOIN, фильтры, экспорт | 16 |
 | **grants** | Роли, гранты, row-level правила (только admin) | 13 |
 | **graph** | Граф данных: запросы, окрестности, кратчайший путь | 13 |
@@ -190,4 +190,4 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 | **lookups** | Справочники: варианты для dropdown/ref | 2 |
 <!-- END:tool-groups -->
 
-Core активна сразу (16 tools). Остальные — через `search_tools`.
+Core активна сразу (17 tools). Остальные — через `search_tools`.

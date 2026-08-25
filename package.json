@@ -1,6 +1,6 @@
 {
   "name": "integram-mcp",
-  "version": "0.7.13",
+  "version": "0.7.14",
   "type": "module",
   "description": "MCP server for Integram — connect AI assistants to your workspace via Model Context Protocol",
   "mcpName": "io.github.judas-priest/integram",
