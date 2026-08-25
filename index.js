@@ -243,7 +243,10 @@ Server: ${BASE_URL}
 3. Workspace management: clone_workspace to duplicate an existing workspace; delete_workspace to permanently remove one.
 
 ## Tool discovery
-Only core tools (CRUD, search, graph, comments, bulk, history) are loaded by default. Use search_tools to activate more — it reports how many tools it activated and names them:
+Stuck or unsure how the platform works? docs_map() and docs_search(query) are active from the start and read the platform docs corpus (115 documents: backend, portal, frontend, ADRs, guides). Use them before guessing.
+
+Only core tools (CRUD, search, docs corpus, graph, comments, bulk, history) are loaded by default. Use search_tools to activate more — it reports how many tools it activated and names them:
+- "advisor" — platform expert: ask_advisor, list_platform_capabilities, docs_read, docs_tool
 - "schema" — create/modify tables and columns, AI/HTTP/script buttons, computed columns (LOOKUP/ROLLUP/FORMULA), validation rules, AI formula generation
 - "reports" — create, run, export reports with aggregation, joins and filters
 - "docs" — documents, blocks, folders, tags, sharing, versions, templates, PDF generation
@@ -1014,7 +1017,7 @@ Git repository hosting per workspace. Activate via search_tools("codespace").
 
 ## Advisor (platform expert)
 
-Platform expert for guidance and help. Activate via search_tools("advisor").
+Platform expert for guidance and help. docs_map and docs_search are core — active from the start. The rest: search_tools("advisor"), also reachable by "документация", "справка", "инструкция", "help", "guide".
 
 - ask_advisor(question, topic?) — ask about schema design, best practices, troubleshooting, feature usage. Grounded in the platform docs corpus + current workspace schema. topic: schema/reports/automations/portal/documents/permissions/import/dashboards/integrations/general
 - list_platform_capabilities() — full list of Integram features by category (data, columns, analytics, automations, documents, integrations, security, portal, AI, graph)
