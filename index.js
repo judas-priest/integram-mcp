@@ -1837,7 +1837,7 @@ const BUILT_IN_TOOL_DEFS = [
 // `workspace`. Sending the word to one group only silently hid the other half —
 // the prompt said `search_tools("automations")` and then named `create_automation`,
 // which the query could never activate. Same shape for connectors and forms.
-const GROUP_ALIASES = {
+export const GROUP_ALIASES = {
   документ: 'docs', документы: 'docs', docs: 'docs', doc: 'docs',
   отчёт: 'reports', отчеты: 'reports', отчёты: 'reports', report: 'reports', reports: 'reports',
   схема: 'schema', таблица: 'schema', колонк: 'schema', schema: 'schema',
@@ -1877,6 +1877,9 @@ const GROUP_ALIASES = {
   lookups: 'lookups', lookup: 'lookups', справочник: 'lookups',
   'meta-kb': 'meta-kb', metakb: 'meta-kb', дебат: 'meta-kb', дискусси: 'meta-kb',
   pm: 'pm', проект: 'pm', задач: 'pm', спринт: 'pm', канбан: 'pm', бэклог: 'pm', issue: 'pm', sprint: 'pm', backlog: 'pm', board: 'pm',
+  // Средства уровня области: без этих слов группа звалась только точным
+  // именем `workspace-tools`. Пришли из бэкендового словаря при сведении.
+  инструмент: 'workspace-tools', пакет: 'workspace-tools', организац: 'orgs',
   найткол: 'nightcall', требован: 'nightcall', спецификац: 'nightcall', верификац: 'nightcall',
   формализ: 'nightcall', formaliz: 'nightcall', governance: 'nightcall', evidence: 'nightcall',
 };
