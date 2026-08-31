@@ -255,6 +255,7 @@ Phrase triggers — user wording maps to a tool group; activate it and use its t
 - Labels answer «откуда задача и про что» — self-explanatory words, no cryptic codes: источник («спека»), область (backend/frontend/platform), тема («pm», «orgs»). Срочность живёт в priority, НЕ в метках. 2-4 per task. Setting labels REPLACES the whole array — read current labels first when adding to existing.
 - Estimates (1-2-3-5-8-13-21) only for OPEN tasks; don't set on done.
 - Never invent due_date; set it only if the user named a date. Done-статус — переходом через pm_update_issue, не сразу при создании.
+- Child issues do NOT inherit labels from their epic — set labels explicitly on every create.
 - Ask ONLY when: the wording fits both a PM task and something else (EAV record / document), or a bulk breakdown (>3 tasks) has no obvious split.
 
 Only core tools (CRUD, search, docs corpus, graph, comments, bulk, history) are loaded by default. Use search_tools to activate more — it reports how many tools it activated and names them:
@@ -851,8 +852,8 @@ Client-facing portal management. Activate via search_tools("portal").
 
 **Configuration:**
 - get_portal_config() — current portal config (branding, pages, modules, auth, chat, SEO)
-- set_portal_config(config, active, custom_domain, merge?) — create/replace full config. With \`merge: true\` — deep-merge partial config into existing (no need to send entire config; only changed fields). **Requires confirmation.**
-- update_portal_module(slug, config, moduleIndex) — update one module without overwriting others
+- set_portal_config(config, active, custom_domain, merge?) — create/replace full config. With \`merge: true\` — deep-merge partial config into existing (no need to send entire config; only changed fields). Arrays are NOT merged — a partial \`pages[]\` replaces every page; for a one-module change use update_portal_module. **Requires confirmation.**
+- update_portal_module(slug, config, moduleIndex) — update one module without overwriting others. Shallow merge into modules[moduleIndex ?? 0].config — keys you pass replace, keys you omit survive. If the MCP tool call cannot be issued, the equivalent REST is workspace-admin JWT → POST /api/v2/:db/portal/api/config (same upsertConfig + cache invalidation).
 - portal_preview() — get preview URL
 - portal_publish(active) — publish (true) or unpublish (false). **Requires confirmation.**
 
@@ -871,7 +872,7 @@ Client-facing portal management. Activate via search_tools("portal").
 
 **Custom Code:**
 - Before writing data reading or the markup of a portal section, call kit_list_components — the @kit library already has reading with a completeness proof, EAV value recovery and the three absence states. Don't reinvent them.
-- kit_list_components(version?, kind?, search?) — catalog of @kit building blocks: name, kind, one-line summary, module. Generated from the library sources at build time, so it cannot drift from the code. An empty list means an empty filter; a missing catalog comes back as a refusal (KIT_NOT_DEPLOYED / KIT_VERSION_NOT_FOUND / KIT_CATALOG_MISSING / KIT_CATALOG_BROKEN).
+- kit_list_components(version?, kind?, search?) — catalog of @kit building blocks: name, kind, one-line summary, module. Generated from the library sources at build time, so it cannot drift from the code. An empty list means an empty filter; a missing catalog comes back as a refusal (KIT_NOT_DEPLOYED / KIT_VERSION_NOT_FOUND / KIT_CATALOG_MISSING / KIT_CATALOG_BROKEN). KIT_NOT_DEPLOYED means the server has no KIT_ASSETS_DIR root or no catalog versions — kit.js itself may still be served by nginx; the fix is deploying the manifest, not moving artifacts.
 - kit_get_component(name, version?) — one entry in detail: module, kind, summary, props, slots and uiKeys for components. Unknown name → refusal listing similar names.
 - Styling a @kit widget: never invent class names or token names. Node classes go in through the \`ui\` prop — a map of node key to your classes, e.g. \`<DataTable :ui="{ row: 'my-row' }" />\`; the keys are \`uiKeys\` from kit_get_component, your classes are APPENDED to the widget's own, and a key outside that list does not exist (the widget refuses it and warns in the console). Token names come from kit_get_tokens. A widget with no uiKeys field takes no \`ui\` prop at all — either it is headless, or the deployed version predates the prop.
 - kit_get_tokens(version?, kind?, component?) — the styling contract: every CSS variable the @kit widgets read (colour, spacing, radius, font, motion) plus the stable class names of each widget. Call it BEFORE writing any style for a @kit widget. A name that is not in this dictionary does not exist: it resolves to nothing, and the section comes out structurally correct, with correct ARIA, and completely unstyled — behavioural tests will not catch it, only looking at the rendered page will. Never invent a token name, never guess a prefix. Each token ships a ready \`usage\` string, e.g. \`var(--kit-color-text, var(--color-text, #1f2328))\` — write it whole, fallback included, because the middle link is the portal shell's own token and that is what makes the widget inherit the portal theme. Refusals: KIT_TOKENS_MISSING (versions up to 0.4.0 carry no dictionary), KIT_NO_STYLING (headless widget, nothing to style).
