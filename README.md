@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/integram-mcp)](https://www.npmjs.com/package/integram-mcp)
 
-MCP-сервер для Integram — даёт доступ к 609 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
+MCP-сервер для Integram — даёт доступ к 610 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
 
 Работает с облачным Integram на **ai2o.online** или с локальным сервером.
 
@@ -15,7 +15,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=https://ai2o.online \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.19
+  -- npx -y integram-mcp@0.7.21
 ```
 
 Ставить ничего не нужно: `npx` скачает пакет сам.
@@ -43,7 +43,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=http://localhost:8081 \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.19
+  -- npx -y integram-mcp@0.7.21
 ```
 
 Удалить: `claude mcp remove integram`
@@ -57,7 +57,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.19"],
+      "args": ["-y", "integram-mcp@0.7.21"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -77,7 +77,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.19"],
+      "args": ["-y", "integram-mcp@0.7.21"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -170,7 +170,7 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 | **schema** | Таблицы, колонки, кнопки (AI/HTTP/script), вычисляемые колонки, валидация | 30 |
 | **memory** | Память агента, инсайты, процедуры, противоречия | 22 |
 | **meta-kb** | Дебаты: параллельные эксперты, LLM-синтез, курирование знаний | 22 |
-| **core** | CRUD объектов, поиск, справочник платформы (docs_map/docs_search), граф, комментарии, bulk-операции | 19 |
+| **core** | CRUD объектов, поиск, справочник платформы (docs_map/docs_search), граф, комментарии, bulk-операции | 20 |
 | **objects** | Перемещение, дублирование, переупорядочивание записей, корзина, обратные ссылки | 17 |
 | **reports** | Отчёты: CRUD, колонки, JOIN, фильтры, экспорт | 16 |
 | **grants** | Роли, гранты, row-level правила (только admin) | 13 |
@@ -190,4 +190,4 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 | **lookups** | Справочники: варианты для dropdown/ref | 2 |
 <!-- END:tool-groups -->
 
-Core активна сразу (19 tools). Остальные — через `search_tools`.
+Core активна сразу (20 tools). Остальные — через `search_tools`.

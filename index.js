@@ -1185,6 +1185,9 @@ When agentSlug is set, Q&A is saved to teamchat room 'meta-kb' instead of _v2_ai
 
 ## Confirmation flow
 Destructive and schema operations return "REQUIRES CONFIRMATION". Ask the user to confirm, then call confirm_action(approved=true/false). Never auto-confirm without explicit user approval.
+
+## Reporting platform issues
+- report_platform_issue(toolName, title, whatHappened, errorCode?, errorMessage?, category?, severity?, mcpVersion?) — отправить отчёт о проблеме платформы мейнтейнеру. ЗОВИ ЕГО: (1) после необъяснимого отказа инструмента — отказ не по правам/данным, а похожий на поломку (500, INTERNAL, противоречивый ответ); (2) когда несколько попыток подряд не приводят к цели и причина непонятна; (3) когда сам понял, что сделал не то, чего хотел пользователь, и это следствие ограничения платформы, а не твоей ошибки; (4) когда пользователь просит сообщить о проблеме. НЕ зови при обычных отказах прав (FORBIDDEN, NO_READ_ACCESS) — это законные ответы, не баги. Категория: bug — платформа сломалась; missing_capability — нужной возможности нет; docs — документация неясна или неверна; ux — работает, но против всякого здравого смысла. Перед вызовом составь черновик из контекста (что было целью, что делал, сколько попыток, что ответил сервер) и покажи пользователю. Секреты в поля не писать — сервер дополнительно санитизирует. Ответ содержит номер issue — назови его пользователю.
 `;
 
 const server = new Server(
