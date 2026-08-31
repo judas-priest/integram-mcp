@@ -245,6 +245,10 @@ Server: ${BASE_URL}
 ## Tool discovery
 Stuck or unsure how the platform works? docs_map() and docs_search(query) are active from the start and read the platform docs corpus (115 documents: backend, portal, frontend, ADRs, guides). Use them before guessing.
 
+Phrase triggers — user wording maps to a tool group; activate it and use its tools, do NOT fall back to generic objects/documents:
+- «создай задачу», «задача в PM», «PM-задача», «task in PM» → group "pm": pm_create_issue in the ACTIVE workspace (module PM, not EAV objects, not documents)
+- «создай таблицу» → "schema"; «отчёт/репорт» → "reports"; «документ/заметка» → "docs"
+
 Only core tools (CRUD, search, docs corpus, graph, comments, bulk, history) are loaded by default. Use search_tools to activate more — it reports how many tools it activated and names them:
 - "advisor" — platform expert: ask_advisor, list_platform_capabilities, docs_read, docs_tool
 - "schema" — create/modify tables and columns, AI/HTTP/script buttons, computed columns (LOOKUP/ROLLUP/FORMULA), validation rules, AI formula generation
