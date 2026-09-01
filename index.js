@@ -1104,6 +1104,8 @@ Organizations are addressed by \`slug\`, never by a numeric id.
 - update_org(slug, name?) — update organization. **Requires confirmation.**
 - delete_org(slug) — delete organization. **Requires confirmation.**
 - list_org_members(slug, page?, pageSize?) — list members of an organization, one page at a time (default 50). Compare items length with total and ask for the next page.
+- list_org_team(slug) — team of the organization: everyone who inherits membership from its workspaces, with their org roles (должности).
+- set_org_member_role(slug, userId, role) — assign org role (admin|editor|viewer) to a team member, or pass "none" to clear it. Only the org owner can do this; the user must be a member of at least one org workspace. **Requires confirmation.**
 - add_org_member(slug, email, role?) — add member by e-mail. **Requires confirmation.**
 - remove_org_member(slug, memberId) — remove member by membership id (from list_org_members). **Requires confirmation.**
 - transfer_org_ownership(slug, userId) — hand ownership to another member; \`userId\` is the member's user id, not the membership id. The former owner stays an admin. **Requires confirmation.**
