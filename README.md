@@ -15,7 +15,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=https://ai2o.online \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.21
+  -- npx -y integram-mcp@0.7.22
 ```
 
 Ставить ничего не нужно: `npx` скачает пакет сам.
@@ -43,7 +43,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=http://localhost:8081 \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.21
+  -- npx -y integram-mcp@0.7.22
 ```
 
 Удалить: `claude mcp remove integram`
@@ -57,7 +57,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.21"],
+      "args": ["-y", "integram-mcp@0.7.22"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -77,7 +77,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.21"],
+      "args": ["-y", "integram-mcp@0.7.22"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -148,6 +148,8 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 | `clone_workspace` | Клонировать воркспейс |
 | `search_tools` | Найти и активировать дополнительные инструменты |
 | `confirm_action` | Подтвердить или отклонить деструктивную операцию |
+
+В воркспейсе (группа `core`, загружается по умолчанию) есть `report_platform_issue` — отправить отчёт о проблеме платформы мейнтейнеру: после необъяснимого отказа инструмента, нескольких неудачных попыток подряд, осознанной ошибки агента или прямой просьбы пользователя. LLM составляет черновик из контекста отказа и показывает пользователю, отправка — после подтверждения (HITL); секреты серверно вырезаются; отчёты дедуплицируются — одна проблема = одна задача со счётчиком вхождений. Ответ содержит номер issue.
 
 ## HITL (подтверждение опасных операций)
 
