@@ -204,6 +204,7 @@ async function checkForUpdate() {
 // одноразовая приписка в длинной сессии теряется, а устаревшая сборка — это
 // дыра против юзера (нет новых тулов и фиксов до ручного обновления).
 function withUpdateNotice(result) {
+  lastCallAt = Date.now();
   if (!updateNotice) return result;
   if (!result || !Array.isArray(result.content)) return result;
   return { ...result, content: [...result.content, { type: 'text', text: updateNotice }] };
@@ -2222,6 +2223,32 @@ async function main() {
   log('MCP server running on stdio');
 }
 
+// ─── Orphan self-termination ─────────────────────────────────────────────────
+//
+// Клиенты (Claude Code, Cursor) не всегда убивают процессы MCP-серверов при
+// закрытии сессии — известная проблема экосистемы (anthropics/claude-code#22612):
+// пары «npm exec + node» остаются жить сутками с токенами доступа внутри
+// (замер от юзер-репорта 01.09.2026: 96 процессов, 2,88 ГБ RSS). Клиентский баг
+// нам не подвластен — завершаемся сами, тремя независимыми механизмами:
+//  1. stdin закрылся — клиент мёртв (для stdio-транспорта это канал жизни);
+//  2. PPID сменился — родитель умер, сироту переусыновил init;
+//  3. час без единого вызова инструмента — сессия, в которой нас забыли.
+// Живой клиент переносит смерть сервера безболезненно: stdio-сервер
+// перезапускается по требованию при следующем вызове.
+let ppid0 = process.ppid;
+let lastCallAt = Date.now();
+const ORPHAN_WATCHDOG_MS = 30_000;
+const ORPHAN_IDLE_MS = 60 * 60 * 1000;
+
+function startOrphanWatchdog() {
+  process.stdin.on('end', () => process.exit(0));
+  process.stdin.on('close', () => process.exit(0));
+  const timer = setInterval(() => {
+    if (process.ppid !== ppid0 || Date.now() - lastCallAt > ORPHAN_IDLE_MS) process.exit(0);
+  }, ORPHAN_WATCHDOG_MS);
+  timer.unref();
+}
+
 // Run only when executed as a program, not when imported. The guard test imports
 // `selectTools` from this file; without this check the import would log in, open a
 // stdio transport and hang the run. realpathSync is required, not decoration: npm
@@ -2237,6 +2264,7 @@ const isProgram = (() => {
 })();
 
 if (isProgram) {
+  startOrphanWatchdog();
   main().catch(err => {
     process.stderr.write(`[integram-mcp] Fatal: ${err.message}\n`);
     process.exit(1);
