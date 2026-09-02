@@ -2243,6 +2243,10 @@ const ORPHAN_IDLE_MS = 60 * 60 * 1000;
 function startOrphanWatchdog() {
   process.stdin.on('end', () => process.exit(0));
   process.stdin.on('close', () => process.exit(0));
+  // SIGTERM/SIGINT: юзер-репорт 55 назвал прямо — «эти процессы не берёт».
+  // node с хендлерами SDK глотает сигналы и висит; здесь — явный выход.
+  process.on('SIGTERM', () => process.exit(0));
+  process.on('SIGINT', () => process.exit(0));
   const timer = setInterval(() => {
     if (process.ppid !== ppid0 || Date.now() - lastCallAt > ORPHAN_IDLE_MS) process.exit(0);
   }, ORPHAN_WATCHDOG_MS);
