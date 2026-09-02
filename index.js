@@ -142,7 +142,6 @@ function log(msg) {
 const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const NPM_REGISTRY = (process.env.npm_config_registry || 'https://registry.npmjs.org').replace(/\/$/, '');
 let updateNotice = null;          // текст приписки, когда есть версия новее
-let updateNoticeDelivered = false; // приписка отдаётся один раз за процесс
 
 // Сравнение версий: >0 если a новее b. Предвыпуск (0.8.0-beta.1) считается
 // старше своего релиза и не поднимает сигнал.
@@ -201,11 +200,12 @@ async function checkForUpdate() {
   } catch { /* нет сети, реестр недоступен, прокси — работе сервера не мешает */ }
 }
 
-// Приписывает сигнал к результату первого вызова инструмента — один раз.
+// Приписывает сигнал к КАЖДОМУ ответу инструмента, пока юзер не обновится:
+// одноразовая приписка в длинной сессии теряется, а устаревшая сборка — это
+// дыра против юзера (нет новых тулов и фиксов до ручного обновления).
 function withUpdateNotice(result) {
-  if (!updateNotice || updateNoticeDelivered) return result;
+  if (!updateNotice) return result;
   if (!result || !Array.isArray(result.content)) return result;
-  updateNoticeDelivered = true;
   return { ...result, content: [...result.content, { type: 'text', text: updateNotice }] };
 }
 
