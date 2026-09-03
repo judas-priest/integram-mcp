@@ -204,7 +204,6 @@ async function checkForUpdate() {
 // одноразовая приписка в длинной сессии теряется, а устаревшая сборка — это
 // дыра против юзера (нет новых тулов и фиксов до ручного обновления).
 function withUpdateNotice(result) {
-  lastCallAt = Date.now();
   if (!updateNotice) return result;
   if (!result || !Array.isArray(result.content)) return result;
   return { ...result, content: [...result.content, { type: 'text', text: updateNotice }] };
@@ -2239,10 +2238,15 @@ async function main() {
 //  3. час без единого вызова инструмента — сессия, в которой нас забыли.
 // Живой клиент переносит смерть сервера безболезненно: stdio-сервер
 // перезапускается по требованию при следующем вызове.
+//
+// ВЫХОД ТОЛЬКО ПО СИРОТСТВУ (ppid сменился — родитель умер). Условие «час без
+// завершённых вызовов» здесь жить не должно: инцидент 03.09.2026 — живая
+// сессия не звала integram-инструменты час, сторож тихо сделал exit(0),
+// у клиента «MCP error», потребовался ручной reconnect. Простой живой сессии —
+// не признак сиротства; смерть родителя ловит проверка ppid, смерть клиента —
+// stdin end/close.
 let ppid0 = process.ppid;
-let lastCallAt = Date.now();
 const ORPHAN_WATCHDOG_MS = 30_000;
-const ORPHAN_IDLE_MS = 60 * 60 * 1000;
 
 function startOrphanWatchdog() {
   process.stdin.on('end', () => process.exit(0));
@@ -2252,7 +2256,7 @@ function startOrphanWatchdog() {
   process.on('SIGTERM', () => process.exit(0));
   process.on('SIGINT', () => process.exit(0));
   const timer = setInterval(() => {
-    if (process.ppid !== ppid0 || Date.now() - lastCallAt > ORPHAN_IDLE_MS) process.exit(0);
+    if (process.ppid !== ppid0) process.exit(0);
   }, ORPHAN_WATCHDOG_MS);
   timer.unref();
 }
