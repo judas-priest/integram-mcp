@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/integram-mcp)](https://www.npmjs.com/package/integram-mcp)
 
-MCP-сервер для Integram — даёт доступ к 615 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
+MCP-сервер для Integram — даёт доступ к 621 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
 
 Работает с облачным Integram на **ai2o.online** или с локальным сервером.
 
@@ -15,7 +15,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=https://ai2o.online \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.31
+  -- npx -y integram-mcp@0.7.34
 ```
 
 Ставить ничего не нужно: `npx` скачает пакет сам.
@@ -43,7 +43,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=http://localhost:8081 \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.31
+  -- npx -y integram-mcp@0.7.34
 ```
 
 Удалить: `claude mcp remove integram`
@@ -57,7 +57,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.31"],
+      "args": ["-y", "integram-mcp@0.7.34"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -77,7 +77,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.31"],
+      "args": ["-y", "integram-mcp@0.7.34"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -172,10 +172,10 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 | **schema** | Таблицы, колонки, кнопки (AI/HTTP/script), вычисляемые колонки, валидация | 30 |
 | **memory** | Память агента, инсайты, процедуры, противоречия | 22 |
 | **meta-kb** | Дебаты: параллельные эксперты, LLM-синтез, курирование знаний | 22 |
+| **orgs** | Организации: участники, области, приглашения | 21 |
 | **core** | CRUD объектов, поиск, справочник платформы (docs_map/docs_search), граф, комментарии, bulk-операции | 20 |
 | **objects** | Перемещение, дублирование, переупорядочивание записей, корзина, обратные ссылки | 17 |
 | **reports** | Отчёты: CRUD, колонки, JOIN, фильтры, экспорт | 16 |
-| **orgs** | Организации: участники, области, приглашения | 15 |
 | **grants** | Роли, гранты, row-level правила (только admin) | 13 |
 | **graph** | Граф данных: запросы, окрестности, кратчайший путь | 13 |
 | **kag** | Граф знаний: поиск, обход, вопрос-ответ, ввоз сущностей и связей | 12 |

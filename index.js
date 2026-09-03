@@ -266,7 +266,7 @@ Only core tools (CRUD, search, docs corpus, graph, comments, bulk, history) are 
 - "agents" — list and delegate to external AI agents
 - "pm" — project management: issues CRUD + bulk ops, checklists, sprints, board, backlog, comments CRUD, issue links, data-links (issue ↔ table/document/report), watchers, templates, trash/restore, members, CSV export, metrics (velocity, burndown, cycle time, workload), AI helpers (triage, decompose, estimate, plan sprint, detect blockers), org aggregation (portfolio, people, cross-project issues)
 - "nightcall" — specification-driven execution: CNM requirements graph, formalization proposals (Extraction IR → governance decisions), artifact specifications, EffectiveSpecification resolver, execution compiler, directed-retry pipeline run, evidence verification, compliance/release decisions, waivers
-- "orgs" — organizations: create, list, manage multi-workspace orgs and members
+- "orgs" — организации: CRUD, участники, приглашения, состав и должности, привязка областей; сводки PM по организации: org_my_issues (мои задачи всех областей, курсор), org_portfolio, org_people (нагрузка), org_activity (лента изменений), org_metrics (velocity/cycle/lead), org_search (поиск записей по всем областям)
 - "bulk" — bulk_create, bulk_update, bulk_delete, autofill_batch
 - "comments" — comments, reactions on records
 - "history" — object change history, rollback
