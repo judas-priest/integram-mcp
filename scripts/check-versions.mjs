@@ -107,7 +107,13 @@ while (queue.length) {
 let archive = null;
 try {
   const out = execFileSync('npm', ['pack', '--dry-run', '--json'], { cwd: pkgDir, encoding: 'utf8' });
-  archive = new Set(JSON.parse(out)[0].files.map((f) => f.path));
+  const parsed = JSON.parse(out.slice(out.indexOf('[')));
+  const entry = Array.isArray(parsed) ? parsed[0] : parsed;
+  if (entry && Array.isArray(entry.files)) {
+    archive = new Set(entry.files.map((f) => f.path));
+  } else {
+    problems.push(`npm pack --dry-run вернул неожиданный ответ — сверка содержимого архива пропущена: ${out.slice(0, 200)}`);
+  }
 } catch (e) {
   problems.push(`npm pack --dry-run не выполнился — сверка содержимого архива пропущена: ${e.message.split('\n')[0]}`);
 }
