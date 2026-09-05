@@ -24,6 +24,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { createRequire } from 'module';
 import { rememberActivation as rememberActivationIn, applyActivation, forgetActivation } from './activation-memory.js';
+import { startOrphanWatchdog } from './orphan-watchdog.js';
 
 // Own identity — read from package.json, never hardcoded: a hardcoded copy drifts
 // (it sat at 0.5.0 through the 0.6.0 and 0.7.0 releases).
@@ -2248,34 +2249,10 @@ async function main() {
 // закрытии сессии — известная проблема экосистемы (anthropics/claude-code#22612):
 // пары «npm exec + node» остаются жить сутками с токенами доступа внутри
 // (замер от юзер-репорта 01.09.2026: 96 процессов, 2,88 ГБ RSS). Клиентский баг
-// нам не подвластен — завершаемся сами, тремя независимыми механизмами:
-//  1. stdin закрылся — клиент мёртв (для stdio-транспорта это канал жизни);
-//  2. PPID сменился — родитель умер, сироту переусыновил init;
-//  3. час без единого вызова инструмента — сессия, в которой нас забыли.
-// Живой клиент переносит смерть сервера безболезненно: stdio-сервер
-// перезапускается по требованию при следующем вызове.
-//
-// ВЫХОД ТОЛЬКО ПО СИРОТСТВУ (ppid сменился — родитель умер). Условие «час без
-// завершённых вызовов» здесь жить не должно: инцидент 03.09.2026 — живая
-// сессия не звала integram-инструменты час, сторож тихо сделал exit(0),
-// у клиента «MCP error», потребовался ручной reconnect. Простой живой сессии —
-// не признак сиротства; смерть родителя ловит проверка ppid, смерть клиента —
-// stdin end/close.
-let ppid0 = process.ppid;
-const ORPHAN_WATCHDOG_MS = 30_000;
-
-function startOrphanWatchdog() {
-  process.stdin.on('end', () => process.exit(0));
-  process.stdin.on('close', () => process.exit(0));
-  // SIGTERM/SIGINT: юзер-репорт 55 назвал прямо — «эти процессы не берёт».
-  // node с хендлерами SDK глотает сигналы и висит; здесь — явный выход.
-  process.on('SIGTERM', () => process.exit(0));
-  process.on('SIGINT', () => process.exit(0));
-  const timer = setInterval(() => {
-    if (process.ppid !== ppid0) process.exit(0);
-  }, ORPHAN_WATCHDOG_MS);
-  timer.unref();
-}
+// нам не подвластен — завершаемся сами; механизмы и их история — в модуле
+// orphan-watchdog.js. ВЫХОД ТОЛЬКО ПО СИРОТСТВУ, не по простою: инцидент
+// 03.09.2026 — живая сессия не звала integram-инструменты час, сторож тихо
+// сделал exit(0), у клиента «MCP error», потребовался ручной reconnect.
 
 // Run only when executed as a program, not when imported. The guard test imports
 // `selectTools` from this file; without this check the import would log in, open a

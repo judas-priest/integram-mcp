@@ -2,9 +2,13 @@
 # Правка того, что уходит в пакет integram-mcp, обязана поднимать номер версии
 # в том же коммите. Скрипт поднимает его сам и добавляет в коммит.
 #
-# Что считается «уходит в пакет». Ровно три файла: `index.js` (единственное имя
-# в поле `files`), `package.json` и `README.md` — последние два npm кладёт в
-# архив всегда. Проверено `npm pack --dry-run`: «total files: 3».
+# Что считается «уходит в пакет». Перечень читается из поля `files` в
+# package.json — ЕДИНСТВЕННОЕ объявление, плюс `package.json` и `README.md`,
+# которые npm кладёт в архив всегда. Захардкоженный перечень («ровно три
+# файла: index.js») стал ложным молча, когда в `files` добавился второй файл:
+# 0.7.36 вышла без activation-memory.js, потому что сторож за ней не следил.
+# Теперь следит за тем, что объявлено. Полноту `files` относительно импортов
+# index.js стережёт scripts/check-versions.mjs (npm test / prepublishOnly).
 #
 # Чего в пакете НЕТ, вопреки ожиданию: определения инструментов. `TOOL_DEFS`
 # живут в бэкенде, а сервер забирает их по сети при запуске
@@ -35,10 +39,19 @@ cd "$ROOT"
 PKG=mcp-server/package.json
 LOCK=mcp-server/package-lock.json
 
+FILED=$(node -e '
+  const p = JSON.parse(require("fs").readFileSync("mcp-server/package.json", "utf8"));
+  for (const f of p.files || []) console.log(f);
+' | sed 's|^|mcp-server/|')
+if [ -z "$FILED" ]; then
+  echo "integram-mcp: поле files в mcp-server/package.json пусто или отсутствует — сторож ослеп" >&2
+  exit 1
+fi
+
 # Файлы, попадающие в архив npm. package-lock.json и scripts/ в архив не идут:
 # их правка выкладки не меняет и бампа не требует.
 STAGED=$(git diff --cached --name-only --diff-filter=ACMR \
-  -- mcp-server/index.js mcp-server/README.md "$PKG" || true)
+  -- $FILED mcp-server/README.md "$PKG" || true)
 [ -n "$STAGED" ] || exit 0
 
 read_version() { node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version" 2>/dev/null || echo ''; }

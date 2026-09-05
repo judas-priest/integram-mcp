@@ -13,6 +13,7 @@
  * Прогон: npm test (и prepublishOnly — до выкладки, а не после).
  */
 
+import { execFileSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { dirname, join, relative } from 'path';
 import { fileURLToPath } from 'url';
@@ -69,6 +70,53 @@ if (!serverInfo) {
   problems.push('index.js: не нашёл version в serverInfo — сторож ослеп, поправь образец');
 } else if (!/PKG\.version/.test(serverInfo[1])) {
   problems.push(`index.js: serverInfo.version = ${serverInfo[1].trim()} — должно быть PKG.version`);
+}
+
+// Архив обязан содержать всё, что пакет тянет по относительному пути.
+// 0.7.36 вышла с index.js:26 → './activation-memory.js', которого в тарболе
+// не было: файл добавили, а в поле `files` — нет. Посылка «в пакете один
+// index.js» жила комментарием в bump-on-change.sh и стала ложной молча.
+// Сверяем не с `files`, а с реальным выходом `npm pack --dry-run`:
+// забыли добавить в files — краснеет здесь и валидит publish (prepublishOnly).
+const FILE_ENTRY = /(?:from|import|require)\s*\(?\s*['"](\.[^'"]+)['"]/g;
+const needed = new Set(pkg.files || []);
+const queue = [...needed].filter((p) => p.endsWith('.js'));
+const seen = new Set();
+while (queue.length) {
+  const rel = queue.pop();
+  if (seen.has(rel)) continue;
+  seen.add(rel);
+  const full = join(pkgDir, rel);
+  if (!existsSync(full)) {
+    problems.push(`${rel}: входит в files, но файла нет`);
+    continue;
+  }
+  for (const m of readFileSync(full, 'utf8').matchAll(FILE_ENTRY)) {
+    const base = relative(pkgDir, join(dirname(full), m[1]));
+    const candidates = m[1].endsWith('.js') ? [base] : [`${base}.js`, join(base, 'index.js')];
+    for (const c of candidates) {
+      if (existsSync(join(pkgDir, c))) {
+        needed.add(c);
+        queue.push(c);
+        break;
+      }
+    }
+  }
+}
+
+let archive = null;
+try {
+  const out = execFileSync('npm', ['pack', '--dry-run', '--json'], { cwd: pkgDir, encoding: 'utf8' });
+  archive = new Set(JSON.parse(out)[0].files.map((f) => f.path));
+} catch (e) {
+  problems.push(`npm pack --dry-run не выполнился — сверка содержимого архива пропущена: ${e.message.split('\n')[0]}`);
+}
+if (archive) {
+  for (const need of [...needed].sort()) {
+    if (!archive.has(need)) {
+      problems.push(`${need}: нужен пакету (files или импорт), но в npm pack его нет — добавь в files в package.json`);
+    }
+  }
 }
 
 if (problems.length) {
