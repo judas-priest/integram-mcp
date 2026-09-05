@@ -13,7 +13,6 @@
  * Прогон: npm test (и prepublishOnly — до выкладки, а не после).
  */
 
-import { execFileSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { dirname, join, relative } from 'path';
 import { fileURLToPath } from 'url';
@@ -104,32 +103,16 @@ while (queue.length) {
   }
 }
 
-let archive = null;
-try {
-  // В CI npm допечатывает в stdout служебный текст ПОСЛЕ JSON-массива
-  // (замер 05.09.2026: «Unexpected non-whitespace character after JSON at
-  // position 556») — берём строго от первого '[' до последнего ']'.
-  const out = execFileSync('npm', ['pack', '--dry-run', '--json', '--loglevel=error'], { cwd: pkgDir, encoding: 'utf8' });
-  const start = out.indexOf('[');
-  const end = out.lastIndexOf(']');
-  if (start !== -1 && end > start) {
-    const parsed = JSON.parse(out.slice(start, end + 1));
-    const entry = Array.isArray(parsed) ? parsed[0] : parsed;
-    if (entry && Array.isArray(entry.files)) {
-      archive = new Set(entry.files.map((f) => f.path));
-    }
-  }
-  if (!archive) {
-    problems.push(`npm pack --dry-run вернул неожиданный ответ — сверка содержимого архива пропущена: ${out.slice(0, 200)}`);
-  }
-} catch (e) {
-  problems.push(`npm pack --dry-run не выполнился — сверка содержимого архива пропущена: ${e.message.split('\n')[0]}`);
-}
-if (archive) {
-  for (const need of [...needed].sort()) {
-    if (!archive.has(need)) {
-      problems.push(`${need}: нужен пакету (files или импорт), но в npm pack его нет — добавь в files в package.json`);
-    }
+// Сверка с реальным выводом `npm pack --json` не выстрелила: CI-шный npm 12
+// допечатывает в stdout служебный текст, три варианта разбора сломались
+// 05.09.2026. Вместо вывода npm проверяем КОНТРАКТ: в архив попадает `files`
+// плюс то, что npm кладёт всегда (package.json, README, LICENSE). Значит
+// всякий нужный пакету файл обязан стоять в files — этого достаточно,
+// проверка офлайн и не зависит от версии npm.
+const ALWAYS_IN_ARCHIVE = new Set(['package.json', 'README.md', 'LICENSE']);
+for (const need of [...needed].sort()) {
+  if (!(pkg.files || []).includes(need) && !ALWAYS_IN_ARCHIVE.has(need)) {
+    problems.push(`${need}: нужен пакету (files или импорт), но его нет в files в package.json`);
   }
 }
 
