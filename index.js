@@ -23,6 +23,7 @@ import {
   CallToolRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { createRequire } from 'module';
+import { rememberActivation as rememberActivationIn, applyActivation, forgetActivation } from './activation-memory.js';
 
 // Own identity — read from package.json, never hardcoded: a hardcoded copy drifts
 // (it sat at 0.5.0 through the 0.6.0 and 0.7.0 releases).
@@ -213,6 +214,28 @@ function withUpdateNotice(result) {
 
 let allTools = [];                // full list from backend
 const activeTools = new Map();    // name → tool def (currently exposed via MCP)
+// Память активации по воркспейсу: switch_workspace ВОССТАНАВЛИВАЕТ неядерную
+// активацию целевого воркспейса, а не сбрасывает до ядра. Инцидент 05.09.2026:
+// clear() в switch_workspace субагента сбрасывал активацию ГЛОБАЛЬНО — у
+// основного сеанса тоже; см. tests/activation-memory.test.js.
+const activationMemory = new Map(); // slug → Set имён неядерных инструментов
+
+function rememberActivation() {
+  rememberActivationIn(activationMemory, workspace, [...activeTools.keys()], BUILT_IN_NAMES);
+}
+
+// Загрузить наборы инструментов целевого воркспейса: ядро + восстановленная
+// из памяти активация. Единая замена прежним clear()+core в четырёх местах.
+async function loadWorkspaceTools(slug) {
+  const tools = await fetchTools();
+  activeTools.clear();
+  for (const t of tools) {
+    if (t.group === 'core' && !BUILT_IN_NAMES.has(t.name)) activeTools.set(t.name, t);
+  }
+  const restored = applyActivation(activationMemory, slug, tools, (t) => activeTools.set(t.name, t));
+  await server.sendToolListChanged();
+  return { tools, restored };
+}
 
 // Built-in MCP tools handled locally — never load from backend to avoid duplicates
 const BUILT_IN_NAMES = new Set([
@@ -1653,13 +1676,9 @@ async function handleCreateWorkspace({ name, slug, template, templateId }) {
     log(`Created workspace "${ws.slug}" (id=${ws.id}, db=${ws.dbName})`);
 
     // Auto-switch to the new workspace
+    rememberActivation();
     workspace = ws.slug;
-    const tools = await fetchTools();
-    activeTools.clear();
-    for (const t of tools) {
-      if (t.group === 'core' && !BUILT_IN_NAMES.has(t.name)) activeTools.set(t.name, t);
-    }
-    await server.sendToolListChanged();
+    await loadWorkspaceTools(ws.slug);
 
     return {
       content: [{ type: 'text', text: `Workspace "${ws.name}" created (slug: ${ws.slug}). Automatically switched to it. ${activeTools.size} core tools loaded.` }],
@@ -1698,6 +1717,7 @@ async function handleDeleteWorkspace(slug) {
         const data = await apiFetch(`/api/v2/workspaces/${slug}`, { method: 'DELETE' });
         if (!data.ok) throw new Error(JSON.stringify(data.error || data));
         log(`Deleted workspace "${slug}"`);
+        forgetActivation(activationMemory, slug);
         if (workspace === slug) {
           workspace = '';
           activeTools.clear();
@@ -1808,13 +1828,9 @@ async function handleCloneWorkspace({ sourceSlug, name, slug, includeDocuments, 
     log(`Cloned workspace "${sourceSlug}" → "${ws.slug}" (id=${ws.id})`);
 
     // Auto-switch to the new workspace
+    rememberActivation();
     workspace = ws.slug;
-    const tools = await fetchTools();
-    activeTools.clear();
-    for (const t of tools) {
-      if (t.group === 'core' && !BUILT_IN_NAMES.has(t.name)) activeTools.set(t.name, t);
-    }
-    await server.sendToolListChanged();
+    await loadWorkspaceTools(ws.slug);
 
     // Чего в клоне НЕТ — обязано быть сказано словами. Отсутствующее опаснее
     // пустого: пустой раздел зритель видит, отсутствующий — нет.
@@ -2080,6 +2096,9 @@ async function handleSearchTools(query) {
     for (const t of matched) {
       activeTools.set(t.name, t);
     }
+    // Активация принадлежит текущему воркспейсу: запомнить, чтобы
+    // switch_workspace её восстановил, а не сбросил (инцидент 05.09.2026).
+    rememberActivation();
 
     if (matched.length) {
       await server.sendToolListChanged();
@@ -2146,20 +2165,17 @@ async function handleSwitchWorkspace(input) {
     }
 
     const slug = match.slug;
+    rememberActivation();
     workspace = slug;
 
-    // Reload tools for the new workspace
-    const tools = await fetchTools();
-    activeTools.clear();
-    for (const t of tools) {
-      if (t.group === 'core' && !BUILT_IN_NAMES.has(t.name)) activeTools.set(t.name, t);
-    }
+    // Загрузить инструменты целевого воркспейса: ядро + восстановленная
+    // из памяти активация (инцидент 05.09.2026 — см. блок у activationMemory).
+    const { tools, restored } = await loadWorkspaceTools(slug);
 
-    await server.sendToolListChanged();
-    log(`Switched to workspace "${slug}", ${activeTools.size} core tools loaded`);
+    log(`Switched to workspace "${slug}", ${activeTools.size} tools loaded (${restored} restored from memory)`);
 
     return {
-      content: [{ type: 'text', text: `Switched to workspace "${slug}". Loaded ${tools.length} tools (${activeTools.size} core active). Use search_tools to activate more.` }],
+      content: [{ type: 'text', text: `Switched to workspace "${slug}". Loaded ${tools.length} tools (${activeTools.size} active${restored ? `, ${restored} restored from previous activation` : ', core only'}). Use search_tools to activate more.` }],
     };
   } catch (err) {
     return { content: [{ type: 'text', text: `Error switching workspace: ${err.message}` }], isError: true };
