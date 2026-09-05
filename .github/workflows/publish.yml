@@ -90,18 +90,41 @@ jobs:
       # Выложенное обязано совпасть с исходником побайтно. Проверяем скачиванием
       # архива из реестра, а не доверием к тому, что publish отработал: под
       # неизменяемым адресом версии обязан лежать ровно тот файл, что собран.
+      # npm после «Your package is being processed…» держит паузу заметно дольше
+      # 25 секунд (замер 05.09.2026: 5 попыток по 5 с кончились раньше, чем
+      # реестр начал отдавать архив), а пустой ответ `npm view` превращался в
+      # пустой URL и «curl: (3) URL rejected» — потому пустоту проверяем явно.
       - name: Сверка выложенного с исходником
         if: steps.check.outputs.publish == 'true'
         run: |
+          set -euo pipefail
           V="${{ steps.check.outputs.version }}"
-          for i in 1 2 3 4 5; do
-            sleep 5
-            if curl -sSLf -o /tmp/pkg.tgz "$(npm view "integram-mcp@$V" dist.tarball)"; then break; fi
+          ok=0
+          for i in $(seq 1 18); do
+            sleep 10
+            url=$(npm view "integram-mcp@$V" dist.tarball 2>/dev/null || true)
+            if [ -n "$url" ] && curl -sSLf -o /tmp/pkg.tgz "$url"; then ok=1; break; fi
             echo "архив ещё не отдаётся, попытка $i"
           done
-          tar -xzf /tmp/pkg.tgz -C /tmp
-          for f in index.js README.md; do
-            a=$(sha256sum "/tmp/package/$f" | cut -d' ' -f1)
+          if [ "$ok" != 1 ]; then
+            echo "реестр не отдал архив integram-mcp@$V за 3 минуты" >&2
+            exit 1
+          fi
+          a=$(sha1sum /tmp/pkg.tgz | cut -d' ' -f1)
+          b=$(npm view "integram-mcp@$V" dist.shasum)
+          if [ "$a" != "$b" ]; then
+            echo "РАСХОЖДЕНИЕ shasum: скачан $a, в реестре $b" >&2
+            exit 1
+          fi
+          echo "shasum $a — совпадает"
+          rm -rf /tmp/pkgx && mkdir /tmp/pkgx && tar -xzf /tmp/pkg.tgz -C /tmp/pkgx
+          # Перечень сверяемых файлов — из files (источник истины) плюс README.
+          node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            console.log([...(pkg.files || []), "README.md"].join("\n"));
+          ' | while IFS= read -r f; do
+            a=$(sha256sum "/tmp/pkgx/package/$f" | cut -d' ' -f1)
             b=$(sha256sum "$f" | cut -d' ' -f1)
             if [ "$a" != "$b" ]; then
               echo "РАСХОЖДЕНИЕ в $f: в npm $a, в репозитории $b" >&2
