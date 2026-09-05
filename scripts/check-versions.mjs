@@ -106,12 +106,20 @@ while (queue.length) {
 
 let archive = null;
 try {
-  const out = execFileSync('npm', ['pack', '--dry-run', '--json'], { cwd: pkgDir, encoding: 'utf8' });
-  const parsed = JSON.parse(out.slice(out.indexOf('[')));
-  const entry = Array.isArray(parsed) ? parsed[0] : parsed;
-  if (entry && Array.isArray(entry.files)) {
-    archive = new Set(entry.files.map((f) => f.path));
-  } else {
+  // В CI npm допечатывает в stdout служебный текст ПОСЛЕ JSON-массива
+  // (замер 05.09.2026: «Unexpected non-whitespace character after JSON at
+  // position 556») — берём строго от первого '[' до последнего ']'.
+  const out = execFileSync('npm', ['pack', '--dry-run', '--json', '--loglevel=error'], { cwd: pkgDir, encoding: 'utf8' });
+  const start = out.indexOf('[');
+  const end = out.lastIndexOf(']');
+  if (start !== -1 && end > start) {
+    const parsed = JSON.parse(out.slice(start, end + 1));
+    const entry = Array.isArray(parsed) ? parsed[0] : parsed;
+    if (entry && Array.isArray(entry.files)) {
+      archive = new Set(entry.files.map((f) => f.path));
+    }
+  }
+  if (!archive) {
     problems.push(`npm pack --dry-run вернул неожиданный ответ — сверка содержимого архива пропущена: ${out.slice(0, 200)}`);
   }
 } catch (e) {
