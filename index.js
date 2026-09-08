@@ -556,7 +556,7 @@ list_objects returns records with column aliases as keys. Use search for free-te
 
 ## Computed columns (LOOKUP, ROLLUP, FORMULA)
 
-Computed columns auto-calculate values based on other data. Activate via search_tools("schema").
+Computed columns auto-calculate values based on other data. Activate via search_tools("schema"); for computed columns and formulas specifically use search_tools("schema computed formula").
 
 - **LOOKUP** — pull a value from a related record through a reference column. Like VLOOKUP in Excel.
   Example: Order has ref to Product → LOOKUP pulls Product's price into Order table.
@@ -578,7 +578,7 @@ Backlinks: get_schema_backlinks(typeId) — show which columns from OTHER tables
 
 ## Validation rules
 
-Set constraints on column values. Activate via search_tools("schema").
+Set constraints on column values. Activate via search_tools("schema validation rules").
 - get_validation_rules(reqId) — see current rules for a column
 - set_validation_rules(reqId, rules) — set rules: { minLength, maxLength, minValue, maxValue, regex, unique }
 Example: require email format → set_validation_rules(reqId, { regex: "^[\\\\w.-]+@[\\\\w.-]+\\\\.[a-z]{2,}$" })
@@ -699,7 +699,7 @@ Bulk update: report_bulk_update(reportId, filters?) — mass-update records usin
 
 ## Documents
 
-Block-based documents (like Notion). Activate via search_tools("documents").
+Block-based documents (like Notion). Activate via search_tools("документ document"); for a subarea narrow the query: search_tools("документ block"), search_tools("документ folder"), search_tools("документ tag"), search_tools("документ version"), search_tools("документ trash restore"), search_tools("документ template pdf"), search_tools("документ access sharing").
 
 - list_documents(search, folderId) — browse documents
 - get_document(docId) / get_document_blocks(docId) — read content and block structure
@@ -795,14 +795,14 @@ Activate via search_tools("bulk").
 
 ## Import / Export
 
-Activate via search_tools("workspace").
+Activate via search_tools("файл import export download").
 - import_data(typeId, csv, mapping) — import CSV string into table. Auto-maps columns by header names. mapping override: { columnIndex: "colId" | "__val__" | "__skip__" }
 - export_data(typeId, limit, filters) — export table to CSV format
 - download_file(fileName, subdir?) — download a file from workspace storage. Returns base64 content (max 10 MB).
 
 ## Dashboards
 
-Visual dashboards with widgets. Activate via search_tools("workspace").
+Visual dashboards with widgets. Activate via search_tools("dashboard widgets").
 - list_dashboards, get_dashboard(id), create_dashboard(title, widgets, layouts?), update_dashboard, delete_dashboard
 
 ## Workspace invitations
@@ -813,14 +813,14 @@ Activate via search_tools("workspace").
 
 ## Sharing
 
-Public links for views and records. Activate via search_tools("workspace").
+Public links for views and records. Activate via search_tools("workspace share record view link").
 - share_view(viewId, typeId, expiresInDays, password) → returns share token/URL
 - share_record(objId, typeId, expiresInDays) → returns share token/URL
 - revoke_view_share, revoke_record_share — disable public links
 
 ## Connectors
 
-External data integrations. Activate via search_tools("workspace").
+External data integrations. Activate via search_tools("workspace connectors"); narrow it: search_tools("workspace api docs fetch") for the AI setup workflow, search_tools("workspace connector test draft schema") for testing and schema generation, search_tools("workspace connectors cdek reconcile") for CDEK reconciliation.
 - list_connectors, get_connector, create_connector, update_connector, delete_connector, run_connector, reconcile_cdek
 - list_connector_presets — available presets (1C, SAP, SCADA, REST templates)
 - AI-assisted connector setup workflow:
@@ -838,7 +838,7 @@ Activate via search_tools("comments").
 
 ## History & rollback
 
-Activate via search_tools("history").
+Activate via search_tools("history"); backlinks live in the objects group: search_tools("history objects backlinks").
 - get_object_history(objId) — full change log for a record
 - rollback_object(objId, auditId) — restore record to state before a specific audit entry (requires confirmation)
 - get_object_backlinks(objectId, limit, offset) — find all records that reference this object via ref columns or mentions
@@ -876,7 +876,7 @@ Activate via search_tools("memory").
 
 ## Portal (admin)
 
-Client-facing portal management. Activate via search_tools("portal").
+Client-facing portal management. Activate via search_tools("portal"); for @kit blocks use search_tools("portal kit components"), for Telegram chat admin search_tools("portal telegram member join invite") and search_tools("portal telegram pin"), for stories and the business API search_tools("portal telegram story business").
 
 **Configuration:**
 - get_portal_config() — current portal config (branding, pages, modules, auth, chat, SEO)
@@ -1072,7 +1072,7 @@ Never state a capability, count, or setting you did not confirm via docs_* — s
 
 ## Teamchat (internal messaging)
 
-Internal messaging with rooms, topics, and decisions. Activate via search_tools("teamchat").
+Internal messaging with rooms, topics, and decisions. Activate via search_tools("teamchat"); narrow it: search_tools("teamchat room member"), search_tools("teamchat topic read export"), search_tools("teamchat messages").
 
 **Rooms:**
 - list_rooms() — list chat rooms the user has access to
@@ -1189,7 +1189,7 @@ Text-to-speech synthesis. Activate via search_tools("ai").
 
 ## Excel export
 
-Create Excel files from raw data. Available via search_tools("workspace").
+Create Excel files from raw data. Available via search_tools("workspace excel xlsx").
 
 - create_excel(title?, sheets) — create an XLSX file from raw data. sheets: [{ name, headers: ["Col1","Col2"], rows: [["val1","val2"]] }]. File is saved to workspace storage. Returns download link.
 
@@ -1934,7 +1934,7 @@ export const GROUP_ALIASES = {
  * @returns {{matched:Array<object>, groupExact:number, total:number, droppedByGroup:Object<string,number>}}
  */
 export function selectTools(query, catalog, available = () => true) {
-  const q = String(query).toLowerCase();
+  const q = String(query || '').toLowerCase();
   const words = q.split(/\s+/).filter(Boolean);
   // Live group catalog — single source of truth, new backend groups appear automatically
   const knownGroups = [...new Set(catalog.map(t => t.group).filter(g => g && g !== 'core'))];
@@ -1952,27 +1952,44 @@ export function selectTools(query, catalog, available = () => true) {
         if (w === g || (minLen >= 4 && (g.startsWith(w) || w.startsWith(g)))) matchedGroups.add(g);
       }
       for (const [alias, group] of Object.entries(GROUP_ALIASES)) {
-        if (alias.startsWith(w) || w.startsWith(alias)) {
+        const minLen = Math.min(w.length, alias.length);
+        if (w === alias || (minLen >= 4 && (alias.startsWith(w) || w.startsWith(alias)))) {
           for (const g of Array.isArray(group) ? group : [group]) matchedGroups.add(g);
         }
       }
     }
 
+    // Счёт релевантности: стем слова (первые 5 символов — против русской
+    // морфологии, см. бэкендовую копию) в имени ×3, в описании ×1;
+    // стабильность — по порядку каталога. Ранжируются и групповые совпадения:
+    // cap 30 честный (total и droppedByGroup сообщают срез), наполнители
+    // группы не вытесняют релевантные тула.
+    const stem = w => (w.length > 5 ? w.slice(0, 5) : w);
+    const ranked = (list) => list
+      .map((t, i) => ({ t, i, s: words.reduce((acc, w) => {
+        const st = stem(w);
+        return acc + (t.name.toLowerCase().includes(st) ? 3 : 0)
+                   + ((t.description || '').toLowerCase().includes(st) ? 1 : 0);
+      }, 0) }))
+      .sort((a, b) => b.s - a.s || a.i - b.i)
+      .map(x => x.t);
+
     let matched;
-    // Tools that came in because the query NAMED their group. These are exempt from
-    // the result cap below: asking for a group and getting an unannounced 30-tool
-    // prefix of it makes activation-by-name meaningless — `workspace` is 121 tools,
-    // and the prompt names tools that sit past position 30 in every one of them.
-    // A vague query is still capped; an explicit group request is honoured in full.
-    let groupExact = 0;
     if (matchedGroups.size > 0) {
-      matched = allTools.filter(t => available(t) && matchedGroups.has(t.group));
-      groupExact = matched.length;
-      // Also include tools from other groups where ALL words match
-      const groupSet = new Set(matched.map(t => t.name));
-      const extra = allTools.filter(t =>
-        !groupSet.has(t.name) && available(t) && words.every(w => toolText(t).includes(w)));
-      matched = matched.concat(extra);
+      // Квота на группу — только при нескольких названных группах: одна группа
+      // и так ограничена общим cap, и резать её десяткой значило бы отнимать
+      // тула, которые cap и не отрезал бы («организации» — 21 тул orgs).
+      // При нескольких — каждая названная группа отдаёт своих лучших, иначе
+      // большая группа вытесняет маленькую (документация: docs=50 съедал
+      // advisor=4 — стемы кириллические против английских описаний).
+      const perGroup = [];
+      for (const g of matchedGroups) {
+        const groupTools = ranked(allTools.filter(t => available(t) && t.group === g));
+        perGroup.push(...(matchedGroups.size > 1 ? groupTools.slice(0, 10) : groupTools));
+      }
+      const groupSet = new Set(perGroup.map(t => t.name));
+      matched = perGroup.concat(ranked(allTools.filter(t =>
+        !groupSet.has(t.name) && available(t) && words.every(w => toolText(t).includes(w)))));
     } else {
       // Fallback A: strict AND — all words must appear in name+description+group
       matched = allTools.filter(t => available(t) && words.every(w => toolText(t).includes(w)));
@@ -2007,13 +2024,12 @@ export function selectTools(query, catalog, available = () => true) {
       }
     }
 
-    // Cap at 30 — but SAY SO. Six groups are larger than the cap (`workspace` is
-    // 121 tools), so activating one by name used to answer "Activated 30 tools: …"
-    // and drop the rest without a word. The model read that as the whole group and
-    // called a tool it had never been given. A cap is right — dumping 121 defs into
-    // the tool list is worse — but a silent one turns absence into a lie.
+    // Cap 30 для ЛЮБОГО запроса, включая точное имя группы. Прежнее изъятие
+    // («группа по имени активируется целиком») активировало 121 тул workspace —
+    // это и есть срыв «<80 имён» (TD-167). Срез честный: total и droppedByGroup
+    // сообщают, сколько и кого отрезано.
     const RESULT_CAP = 30;
-    const keep = Math.max(RESULT_CAP, groupExact);
+    const keep = RESULT_CAP;
     const totalMatched = matched.length;
     const droppedByGroup = {};
     if (totalMatched > keep) {
@@ -2024,7 +2040,7 @@ export function selectTools(query, catalog, available = () => true) {
     }
     matched = matched.slice(0, keep);
 
-    return { matched, groupExact, total: totalMatched, droppedByGroup, knownGroups, words, RESULT_CAP };
+    return { matched, groupExact: matchedGroups.size > 0 ? totalMatched : 0, total: totalMatched, droppedByGroup, knownGroups, words, RESULT_CAP };
   }
 }
 
