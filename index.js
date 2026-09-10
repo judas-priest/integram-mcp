@@ -1072,7 +1072,7 @@ Never state a capability, count, or setting you did not confirm via docs_* — s
 
 ## Teamchat (internal messaging)
 
-Internal messaging with rooms, topics, and decisions. Activate via search_tools("teamchat"); narrow it: search_tools("teamchat room member"), search_tools("teamchat topic read export"), search_tools("teamchat messages").
+Internal messaging with rooms, topics, and decisions. Activate via search_tools("teamchat"); narrow it: search_tools("teamchat room member"), search_tools("teamchat room delete"), search_tools("teamchat topic read export"), search_tools("teamchat messages").
 
 **Rooms:**
 - list_rooms() — list chat rooms the user has access to
