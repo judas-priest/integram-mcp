@@ -285,7 +285,10 @@ Only core tools (CRUD, search, docs corpus, graph, comments, bulk, history) are 
 - "kag" — knowledge-augmented generation: search, traverse, ask, import, browse, stats, clusters, anomalies
 - "memory" — agent long-term memory, recall, procedures, contradictions
 - "timeseries" — record, query, and list time-series data sources
-- "advisor" — platform expert: docs map/search/read, tool cards, advice on schema design and best practices
+- "dlp" — data loss prevention rules: list/create/update/delete (admin)
+- "presentations" — PPTX engine: create/update presentations, versions, sharing, export/import (pptx/pdf)
+- "normalizer" — AI document pipeline: classify, extract, resolve, populate; normalization jobs
+- "workspace-tools" — per-workspace custom sandbox tools: list, register, execute
 - "ai" — text-to-speech synthesis (TTS): speak text, list voices, check TTS service status
 - "agents" — list and delegate to external AI agents
 - "pm" — project management: issues CRUD + bulk ops, checklists, sprints, board, backlog, comments CRUD, issue links, data-links (issue ↔ table/document/report), watchers, templates, trash/restore, members, CSV export, metrics (velocity, burndown, cycle time, workload), AI helpers (triage, decompose, estimate, plan sprint, detect blockers), org aggregation (portfolio, people, cross-project issues)
