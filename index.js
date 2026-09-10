@@ -1481,6 +1481,133 @@ const EN_DESCRIPTIONS = {
   register_agent: 'Register a new external AI agent with endpoint URL, capabilities, and authentication.',
   update_agent: 'Update an external agent configuration — endpoint, capabilities, description.',
   delete_agent: 'Delete a registered external agent. Destructive — HITL required.',
+  // Specs (data invariants)
+  create_spec: 'Create a data spec (declarative invariant, ADR-019) for a table. definition: { rules: [{ field, op, value?, problem? }] }. Returns: { id, typeId, name, definition, enabled }.',
+  update_spec: 'Update a spec: name, definition, enabled. Pass definition in FULL — it replaces the stored one. Returns: { id, ...fields }.',
+  delete_spec: 'Delete a spec by ID (requires confirmation). View the spec via list_specs first. Returns: { id, deleted: true }.',
+  // Documents — new tools
+  update_document_fields: 'Update document fields: parent_id, folder_id, sort_order, is_template, is_public, icon, cover_url (for the title alone use update_document_title). null resets a value where allowed. Returns the updated document.',
+  restore_block_version: 'Restore block content from a history version (browse history via get_block_history). Requires confirmation. Returns the updated block.',
+  list_document_variables: 'List template variables for a table type — system fields and columns that can be interpolated into document templates. Returns: { typeId, variables: [{ name, label, type }] }.',
+  // Agent memory
+  list_memories: 'Browse stored memories as a list: keys, values, tags, scopes. Unlike recall (question search), this is an overview of memory contents. Optional tag filter, includeShared, limit (default 50, max 200).',
+  hybrid_search_memory: 'Hybrid search over agent memory (vector + BM25 + MMR) — more precise than recall for pinpoint queries. tags/scope/minScore filters apply after ranking. Returns ranked results with scores.',
+  get_memory_history: 'Bitemporal change history of a memory record by key — which values were written and when. Returns a list of versions.',
+  get_shared_state_log: 'Event log of shared state changes — who changed which key and when. Omit key for the full log. Admin only.',
+  get_memory_audit: 'Audit log of workspace memory operations. Admin only. Optional agentId filter.',
+  link_agent_memory: 'Link an agent memory record to a workspace object (RELATES_TO_OBJ edge in memory_edges). Idempotent — repeated calls with the same arguments change nothing.',
+  // Import & files
+  import_create_all_sheets: 'Import EVERY sheet of an XLSX workbook as a separate table (creates types and columns from headers; requires confirmation). Returns: { tables: [{ sheet, sheetIndex, typeId, typeName, columnsCreated, created, ids, errors }], totalSheets, created }.',
+  list_file_meta: 'List uploaded file metadata (_v2_files): processing status, classification, object link. Optional objectId filter and pagination. Returns: { files: [...], total }.',
+  // Comments
+  get_comment_reactions: 'Get reactions on an object comment. Returns: { commentId, reactions: [{ emoji, count, authors }] }.',
+  // Workspace templates & bots
+  save_workspace_template: 'Save a workspace as a template. Requires admin/owner in the source workspace. Provide source_slug, name, slug; optional description, icon, visibility (private|org|public), include_data.',
+  apply_workspace_template: 'Apply a template to an EXISTING workspace (creating a new one from a template is a separate tool). Requires admin/owner. dry_run=true shows the plan without changes. Requires confirmation.',
+  leave_workspace: 'Leave a workspace yourself. Owners and the last admin cannot leave — the service refuses. Requires confirmation.',
+  update_workspace_template: 'Update workspace template metadata: name, description, icon, visibility. Only the template owner can change it.',
+  delete_workspace_template: 'Delete a workspace template by ID. Irreversible — requires confirmation.',
+  update_service_bot_role: 'Change a service bot role (admin|editor|viewer). Admin/owner only; a role cannot be raised above your own.',
+  revoke_service_key: 'Revoke a service bot API key. The key stops working immediately; irreversible. Requires confirmation.',
+  // KAG
+  kag_get_edges: 'Batch-get knowledge graph edges for a list of entities plus any missing neighbors. Use kag_traverse to walk from a single entity.',
+  // Agents — suggestions & secrets
+  rotate_agent_secret: 'Rotate the callback secret of a registered agent. The old secret stops accepting callbacks immediately (requires confirmation). Returns: { id, slug, callbackSecret, message }.',
+  get_agent_suggestion: 'Details of a single agent-creation suggestion: pattern, rationale, status. Returns: { id, status, pattern, rationale, ... }.',
+  get_agent_suggestion_telemetry: 'Telemetry for agent suggestions: counts per status, average confidence, top patterns. Admin only. Returns: { pending, applied, dismissed, ... }.',
+  find_similar_suggestions: 'Search OPEN (pending) agent suggestions by substring. Returns: { suggestions: [...], total }.',
+  // CDEK & DaData
+  cdek_get_config: 'Get the portal CDEK integration config (staff): whether the connector is configured, sender city, bound reqIds for dimensions, phone, and recipient city. Read-only.',
+  cdek_calculate_tariff: 'Calculate CDEK delivery cost for a portal order — dimensions and city come from the order requisites; optional PVZ code. Returns: { tariffs, city }.',
+  cdek_list_pvz: 'List CDEK pickup points by city name. Returns matching cities; the full point list only when exactly one city matched. Returns: { cities, points }.',
+  cdek_create_shipment: 'Create a CDEK waybill for a portal order (mode: "pvz" or "door"; pvzCode required for "pvz"). EXTERNAL IRREVERSIBLE ACTION: every call creates a REAL waybill — do not retry on an unclear result, check the order first. Requires confirmation.',
+  cdek_get_label: 'Get the CDEK label PDF for a portal order — fetches the barcode by order UUID and waits up to ~12s for the PDF. Returns: { filename, size, base64 }.',
+  dadata_suggest: 'DaData suggestions via server proxy with the platform token: address, company by INN/name, bank, full name, email. mode=findById does an exact lookup by identifier (INN). Returns [{ value, data }].',
+  // Portal orders
+  get_portal_order: 'Get a single portal order in full (admin): status, date, amount, tracking number, items. Unlike get_portal_orders (list), reads one record by ID with no customer filter.',
+  get_portal_order_linked: 'Get portal orders linked to a given order (admin): the merge group of one customer and the group main order. Returns: { linked: [{ id, name, isMain }], mainId }.',
+  add_portal_order_item: 'Add a product to a portal order (admin): creates a child item record; the price is taken from the product unless given. Returns: { id, name, qty, price, variant }.',
+  collect_portal_order_items: 'Portal order assembly (admin), one tool with action: collect_all (default) — mark ALL items collected and move a "Picking" order to "Picked"; check — verify whether all items are collected (no changes); toggle — flip the "collected" flag of ONE item (needs itemId).',
+  merge_portal_orders: 'Merge portal orders (admin): donor items move to the master order, donors get "Cancelled" status with a comment, empty master fields are filled from donors, the amount is recalculated. All orders must belong to one customer and not be in a terminal status. Reversible only manually. Requires confirmation.',
+  // Portal
+  invoke_server_function: 'Execute a codespace server function (api/<name>.js in the workspace git repo). Arbitrary code in a sandbox — requires confirmation. Optional idempotencyMinutes suppresses retries with identical args within an N-minute window — enable for functions with external side effects.',
+  list_portal_config_history: 'List portal config snapshot history (admin): recent saves with dates and authors. Call BEFORE restore_portal_config.',
+  restore_portal_config: 'Roll the portal config back to a history snapshot (admin). Overwrites the ENTIRE current config — call list_portal_config_history first and tell the user what will be lost. The portal cache is invalidated automatically. Requires confirmation.',
+  get_portal_analytics: 'Portal visit and order stats (admin): page/product views and orders created over 1d|7d|30d (default 7d).',
+  search_portal_kb: 'Semantic search in the portal knowledge base (table bound by the kb module). Returns: { configured, items: [{ id, title, score }] }; configured=false when the kb module has no bound table.',
+  // Codespace — review gates & repo policy
+  run_review_gate: 'Run the AI review gate on a PR diff: reviewer + opponent + council verdict. Slow (LLM calls).',
+  enqueue_machine_gate: 'Enqueue the machine gate (automated checks) for a PR. Returns jobId, or { enqueued: false } when Redis is unavailable.',
+  get_machine_gate: 'Get the latest machine gate result for a PR. error NOT_FOUND when there is no result yet.',
+  set_repo_write_mode: 'Change repository write mode: requireBaseCommit (forbid writes without a fresh baseCommit) and the protectedBranches list. Admin only. Security policy change — expects confirmation.',
+  get_tree_commits: 'Last commit per file for a batch of entries (up to 500) — a cheap way to annotate a file tree. Returns a commits map { path: { sha, subject, timestamp, authorName } }.',
+  // Normalizer
+  list_normalization_jobs: 'List recent workspace normalization jobs (last 100). Use get_normalization_status by jobId for details. Returns: { jobs: [{ jobId, status: { stage, progress, errors } }], total }.',
+  // Decisions
+  get_decision_graph: 'Graph of all workspace decisions: nodes (decisions with verdict, impact, domain) and edges (compatible/conflict/parent/supersedes) with colors and widths for visualization.',
+  get_decision_kag_stats: 'How many knowledge base (KAG) entities and relations were derived from a given decision. Requires decision ID.',
+  // Teamchat — new tools
+  list_call_history: 'Call history of the current user — both incoming and outgoing (as initiator or participant). Optional limit (default 50, max 200).',
+  list_public_rooms: 'List public teamchat rooms the user can join via join_room. Returns: { data: [{ id, name, description, roomType, visibility, isMember }] }.',
+  forward_message: 'Forward a teamchat message to another topic: the text is copied with author attribution. Returns: { data: { id, targetTopicId } }.',
+  send_topic_file: 'Attach an already-uploaded workspace file to a chat topic message by fileId (file card like a UI upload). Does not upload binaries — the file must exist in _v2_files. Returns the created message { data: { id, cards } }.',
+  refresh_topic_document: 'Append new topic messages to an already-exported document (export_topic_to_document only creates it; this one continues it). Returns: { data: { documentId, addedBlocks } }.',
+  create_reminder: 'Create a reminder in a chat topic — the user gets a notification at fireAt. The date must be in the future. Returns: { data: { id, fireAt } }.',
+  list_reminders: 'List the current user pending reminders across all chat topics. Returns: { data: [{ id, topicId, topicName, note, fireAt, status }] }.',
+  delete_reminder: 'Cancel your own pending reminder (reminders of others are refused — ownership is checked server-side). Returns: { data: { cancelled: true } }.',
+  get_message_reactions: 'Get reactions on a teamchat message grouped by emoji. Not to be confused with object-comment reactions (get_comment_reactions). Returns: { data: [{ emoji, count, authors }] }.',
+  add_message_reaction: 'Add your emoji reaction to a teamchat message. Requires membership in the topic room. Returns: { data: [{ emoji, count, authors }] }.',
+  remove_message_reaction: 'Remove YOUR reaction from a teamchat message. Not to be confused with remove_reaction (object comments). Returns: { data: [{ emoji, count, authors }] }.',
+  request_topic_approval: 'Ask topic room admins to approve an agent action (merge_pr — merge a PR, change_verdict — change a decision verdict, or a custom type). Creates a request and notifies admins; the decision stays with a human. Returns: { suspendedId, jobKey }.',
+  list_topic_tasks: 'List chat tasks (topics with an assignee) with filters by status, priority, ANY assignee, room, and name search; sort: priority/recent/deadline. Unlike list_recent_topics (assigned_to_me only, sorted by messages). Returns: { data: { tasks: [{ id, name, status, priority, assignedTo, deadlineAt, roomName }], nextCursor } }.',
+  update_room_member_role: 'Change a chat room member role: admin or member. Requires room admin rights (checked server-side); the last admin cannot be demoted. Returns: { data: { roomId, userId, role } }.',
+  // Meta-KB — new tools
+  mk_get_debate_by_topic: 'Get the latest saved debate of a topic (by topicId): question, opinions, consensus, verdict.',
+  mk_list_changes: 'List knowledge base change requests — the review queue. Read it here first, then review via mk_review_change. status: pending (default) | approved | rejected.',
+  mk_update_iteration: 'Close a Meta-KB reasoning iteration: accept, reject, or shelve it. status: accepted | rejected | ignored.',
+  mk_list_debates: 'List expert debates. Without filters — recent across the workspace; topicId — all debates of a topic; decisionId — debates linked to a decision. Pass only ONE filter.',
+  mk_export_debate: 'Export a debate. format=md (default) — Markdown in the markdown field; format=docx — DOCX in the base64 field (save it via create_file, the filename is already chosen).',
+  // Organizations
+  org_list_workspaces: 'List workspaces attached to an organization: slug, name, roles. Returns: { items, total, page, pageSize }.',
+  org_attach_workspace: 'Attach an existing workspace to an organization. Requires admin/owner in the organization AND rights on the workspace (checked server-side). Requires confirmation.',
+  org_detach_workspace: 'Detach a workspace from an organization. Available to the workspace owner or an organization admin/owner. Requires confirmation.',
+  org_get_pm_defaults: 'Get the organization reference task types and statuses (used when creating issues in member workspaces).',
+  org_set_pm_defaults: 'Set the organization reference task types and statuses (up to 16 types, up to 32 statuses; kind: open/active/done/canceled). Organization owner only — checked server-side.',
+  org_suggest_assignee: 'Suggest an assignee in an organization workspace: candidates ranked by overdue work, active load, and points.',
+  // PM — boards, statuses, checklists, analytics
+  pm_add_checklist_item: 'Add a new item to a PM issue checklist. Returns the item with its id — use it with pm_toggle_checklist / pm_remove_checklist_item.',
+  pm_remove_checklist_item: 'Remove one item from a PM issue checklist by item id (ids come from the issue checklist field).',
+  pm_create_board: 'Create a PM board. By default it is seeded with a COPY of the first board statuses (or from copy_statuses_from); empty=true creates it without columns.',
+  pm_update_board: 'Rename a PM board and/or change its sort order.',
+  pm_delete_board: 'Delete a PM board. The last board cannot be deleted; live issues require move_to (statuses are mapped by kind). Requires confirmation.',
+  pm_create_status: 'Add a status column to a PM board. kind is one of open, active, done, canceled. Max 32 statuses per board; a duplicate name on the board is a conflict.',
+  pm_update_status: 'Update a PM status label, kind, or sort. The status NAME cannot be changed (issues reference it).',
+  pm_delete_status: 'Delete a PM status. Refused with 409 while live issues use it; refused with 400 if its kind category would become empty. Requires confirmation.',
+  pm_get_cfd: 'Cumulative flow diagram: issue counts per status over time (sibling of pm_get_velocity / pm_get_burndown). Optional days window 1-365, default 30.',
+  pm_list_issues_by_target: 'List PM issues linked to an EAV target (data links). Sibling of pm_list_data_links, which lists links of ONE issue. Requires target_type (table|document|report|object) and target_id.',
+  // CNM
+  ncl_list_edges: 'List active edges of the requirement graph with optional filters.',
+  ncl_create_proposal: 'Create a generic ModelChangeProposal (any kind: model_change, handler_mapping, artifact_structure). Nothing enters the CNM until accepted via ncl_decide_proposal. Prefer ncl_formalize for formalizing free text.',
+  // Presentations
+  pres_update: 'Update presentation metadata: title, is_public, status (draft|published|archived).',
+  pres_list_versions: 'List saved versions (snapshots) of a presentation, newest first.',
+  pres_create_version: 'Save a version snapshot of the presentation right now.',
+  pres_restore_version: 'Restore slides from a saved version. The current state is snapshotted automatically before the restore.',
+  pres_get_sharing: 'List per-user sharing entries of a presentation.',
+  pres_set_sharing: 'Grant or update a user role on a presentation (viewer|editor|admin). Requires admin role on the presentation.',
+  pres_revoke_sharing: 'Revoke a sharing entry of a presentation by its sharing id.',
+  pres_export: 'Export a presentation to PPTX or PDF. Returns { filename, size, base64 } — decode base64 and save as a binary file.',
+  pres_import: 'Import a PPTX file (base64, max 50 MB) as a new presentation. Returns presId and import warnings.',
+  pres_preview_bindings: 'Resolve binding placeholders ({{...}}) in text against workspace data, same as the editor insert-value button. Requires editor role.',
+  // DLP
+  list_dlp_rules: 'List the workspace DLP (data loss prevention) rules. Admin only.',
+  create_dlp_rule: 'Create a DLP rule. rule_type: keyword|regex|type_block|llm_classify; severity: block|warn|audit. Admin only.',
+  update_dlp_rule: 'Update a DLP rule by id. Pass only the fields to change. Admin only. Security policy change — expects confirmation.',
+  delete_dlp_rule: 'Delete a DLP rule by id. Admin only. Security policy change — expects confirmation.',
+  // Reports & audit — changed semantics
+  get_report: 'Run a report and get data rows. Accepts the same selection params as REST POST /reports/:id/run: order, totals, select, fieldNames, filterId. Returns: { data, total, columns }.',
+  query_audit: 'Query the workspace audit log — changes to objects, schema, reports, and AI tool calls (admin only). type: objects|schema|reports|ai|all; for type=ai filter by action substring or exact toolName. Returns: { items: [...], total }.',
+  export_audit_log: 'Export the workspace audit log (objects, schema, reports, ai) to JSON or CSV (admin only). Returns { data: [...], meta: { total } } for json; CSV text for csv.',
 };
 
 /** Convert backend tool def → MCP tool listing entry */
