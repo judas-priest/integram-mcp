@@ -1892,9 +1892,9 @@ const EN_DESCRIPTIONS = {
   get_record_share: 'Get the current public access token of a record.',
   revoke_record_share: 'Revoke the public link of a record (requires confirmation).',
   // Aggregate
-  aggregate_objects: 'Aggregate table data — SUM, AVG, COUNT, MIN, MAX over columns. Returns computed values.',
+  aggregate_objects: 'Aggregate table data — SUM, AVG, COUNT, MIN, MAX over columns. Returns computed values. Does not accept filters (rejected with a 400 error); supported: dateFrom, dateTo, columns[].',
   group_objects: 'Group records by a column with a count per group.',
-  pivot_objects: 'Pivot table — rows by one column, columns by another, values = COUNT.',
+  pivot_objects: 'Pivot table — rows by one column, columns by another, values = an aggregate. valueField — numeric column id for the aggregate; agg — COUNT|SUM|AVG|MIN|MAX, default COUNT, SUM with valueField. SUM/AVG/MIN/MAX without valueField return a 400 error. Ref columns are read in both storage patterns, pivot keys are target names.',
   // Dashboards
   list_dashboards: 'List workspace dashboards with widget counts.',
   get_dashboard: 'Get a dashboard by ID — title, widget list with types and configuration, grid layout.',
