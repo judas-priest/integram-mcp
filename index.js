@@ -338,6 +338,7 @@ Phrase triggers — user wording maps to a tool group; activate it and use its t
 | rating | star rating | ratings, scores (1–5 stars) |
 | status | status badge | workflow status with color coding |
 | choice | choice/select | single choice from predefined options |
+| collaborator, пользователь | user picker | workspace member: assignee, responsible person; value is the user's id (accepts id, email or username on write); filterable, supports [USER_ID] in report filters |
 | http_button | clickable button | HTTP request per row (see HTTP Buttons section) |
 | script_button | clickable button | JavaScript per row (see Script Buttons section) |
 | ai_button | clickable button | AI prompt per row (see AI Buttons section) |
@@ -438,7 +439,7 @@ plan_schema({ tables: [...] }) creates all tables, columns, refs, and seed recor
 
 **Column properties:**
 - alias (required) — display name
-- type — data type: text/memo/number/date/datetime/bool/file/pwd/uuid/url/duration/currency/percent/rating/status/choice/phone/email/http_button/script_button/ai_button (NOT needed if refTable is set)
+- type — data type: text/memo/number/date/datetime/bool/file/pwd/uuid/url/duration/currency/percent/rating/status/choice/phone/email/collaborator/http_button/script_button/ai_button (NOT needed if refTable is set)
 - refTable — name of another table in the plan for ref/dropdown column
 - multi — true for multiselect (REQUIRES refTable)
 - required — true for mandatory field
@@ -1684,7 +1685,7 @@ const EN_DESCRIPTIONS = {
   downvote_memory: 'Decrease memory relevance (negative feedback).',
   // Schema management
   create_table: 'Create a table (root or child). For a child table pass parentTypeId. After creation add columns via add_column. If you plan to fill data, design all columns up front, including lookup (ref) tables, so records can be created with complete data right away. Returns: { id, type:"table", name, message }.',
-  add_column: 'Add a column to a table (requires confirmation). colTypeName: text/number/date/bool. For a lookup (ref to another table) pass refTypeId. For MULTISELECT (multiple values): 1) create a lookup table with the options, 2) pass refTypeId=that table id + multi=true. Multiselect WITHOUT refTypeId is impossible — it errors. Returns: { id, type:"column", alias, message }.',
+  add_column: 'Add a column to a table (requires confirmation). colTypeName: text/number/date/bool. For a lookup (ref to another table) pass refTypeId. For MULTISELECT (multiple values): 1) create a lookup table with the options, 2) pass refTypeId=that table id + multi=true. Multiselect WITHOUT refTypeId is impossible — it errors. For a workspace member (assignee, responsible person) use colTypeName "collaborator" — the value is the user\'s id; accepts id, email or username of a workspace member. Returns: { id, type:"column", alias, message }.',
   update_table: 'Rename a table, change its icon, or change its parent (requires confirmation). Returns: { id, type:"table", message }.',
   update_column: 'Modify a column: rename, change type, required, multi (requires confirmation). Returns: { id, type:"column", message }.',
   reorder_columns: 'Change the position of a column in a table.',

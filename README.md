@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/integram-mcp)](https://www.npmjs.com/package/integram-mcp)
 
-MCP-сервер для Integram — даёт доступ к 731 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
+MCP-сервер для Integram — даёт доступ к 734 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
 
 Работает с облачным Integram на **ai2o.online** или с локальным сервером.
 
@@ -15,7 +15,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=https://ai2o.online \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.58
+  -- npx -y integram-mcp@0.7.60
 ```
 
 Ставить ничего не нужно: `npx` скачает пакет сам.
@@ -43,7 +43,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=http://localhost:8081 \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.58
+  -- npx -y integram-mcp@0.7.60
 ```
 
 Удалить: `claude mcp remove integram`
@@ -57,7 +57,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.58"],
+      "args": ["-y", "integram-mcp@0.7.60"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -77,7 +77,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.58"],
+      "args": ["-y", "integram-mcp@0.7.60"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -169,7 +169,7 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 | **docs** | Документы, блоки, версии, шаринг, папки, теги, шаблоны, PDF | 53 |
 | **nightcall** | Нормативная спецификация и проверяемая генерация: требования, обязательства, свидетельства, базовые линии | 44 |
 | **codespace** | Git-репозитории: ветки, коммиты, файлы, точечная правка (`patch_file`), pull requests; запись с `baseCommit` сливается с чужими изменениями вместо перезаписи | 36 |
-| **schema** | Таблицы, колонки, кнопки (AI/HTTP/script), вычисляемые колонки, валидация | 30 |
+| **schema** | Таблицы, колонки, кнопки (AI/HTTP/script), вычисляемые колонки, валидация | 33 |
 | **memory** | Память агента, инсайты, процедуры, противоречия | 28 |
 | **orgs** | Организации: участники, области, приглашения | 27 |
 | **meta-kb** | Дебаты: параллельные эксперты, LLM-синтез, курирование знаний | 25 |
