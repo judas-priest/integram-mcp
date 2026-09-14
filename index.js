@@ -2219,6 +2219,12 @@ const EN_DESCRIPTIONS = {
   pres_create_from_outline: 'Create a presentation from a markdown outline (# heading = one slide). Returns presId.',
   pres_save_slides: 'Replace all slides of a presentation with the given canonical model.',
   pres_delete: 'Soft-delete a presentation.',
+  // Video engine
+  vid_create_job: 'Create a training-video render job: the scenario (JSON: title, viewport, steps[] with narration) is recorded in a browser and assembled with TTS narration; returns jobId.',
+  vid_get_job: 'Get video-engine job status: stage (queued/tts/recording/rendering/done/error/cancelled), progress, path to the rendered mp4.',
+  vid_list_jobs: 'List video-engine jobs of the workspace.',
+  vid_cancel_job: 'Cancel a video-engine job (if it has not finished yet).',
+  vid_validate_scenario: 'Validate a video scenario against the schema without creating anything: returns normalized steps or errors.',
 
 };
 
