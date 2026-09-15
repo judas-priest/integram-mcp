@@ -25,6 +25,7 @@ import {
 import { createRequire } from 'module';
 import { rememberActivation as rememberActivationIn, applyActivation, forgetActivation } from './activation-memory.js';
 import { startOrphanWatchdog } from './orphan-watchdog.js';
+import { enqueuePending, takePending } from './pending-hitl.js';
 
 // Own identity — read from package.json, never hardcoded: a hardcoded copy drifts
 // (it sat at 0.5.0 through the 0.6.0 and 0.7.0 releases).
@@ -244,10 +245,14 @@ const BUILT_IN_NAMES = new Set([
   'delete_workspace', 'clone_workspace', 'search_tools', 'confirm_action',
 ]);
 
-// Pending HITL state — stores the threadId for the last pending_confirmation
-const pendingHitlQueue = []; // [{ threadId, action, description, createdAt }, ...]
+// Pending HITL state — each entry carries a short id so confirm_action names
+// exactly which pending action it confirms (PM-241: a confirm used to execute
+// the OLDEST queued action, not the approved one).
+const pendingHitlQueue = []; // [{ id, threadId, action, description, createdAt, onApprove?, onReject? }, ...]
 const HITL_QUEUE_MAX_SIZE = 50;
 const HITL_QUEUE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+let _hitlSeq = 0;
+const nextHitlId = () => `c${(++_hitlSeq).toString(36)}${Date.now().toString(36).slice(-4)}`;
 
 async function fetchTools() {
   const data = await apiFetch(`/api/v2/${workspace}/ai/tools`);
@@ -733,7 +738,7 @@ Block-based documents (like Notion). Activate via search_tools("документ
 
 Event-driven rules: when X happens → check condition → do Y. Activate via search_tools("automations").
 
-create_automation({ name, trigger: { type, typeId }, active?, condition, actions: [{ type, config }] })
+create_automation({ name, trigger: { type, typeId }, active?, condition, actions: [{ type, …плоские ключи действия }] }) — действия хранятся с ПЛОСКИМИ ключами: { type: 'run_script', script: '…' }, вложенного config нет
 - active: false — создать выключенной (по умолчанию включена; выключенная не встаёт в расписание и не срабатывает)
 - Trigger types: on_create, on_update, on_delete, on_deadline, on_webhook, on_form_submit, schedule, manual, ai_analysis, on_metric_threshold, on_metric_silence, on_document, on_ncl_run_completed, on_ncl_requirement_created, on_ncl_evidence_stale, on_telegram_command, on_telegram_message, on_telegram_pre_checkout, on_telegram_shipping, on_telegram_payment, on_telegram_inline, on_telegram_join_request, on_telegram_business_connection, on_telegram_business_message, on_bot_chat_member, pm_deadline, on_issue_commented, on_issue_updated, on_issue_created, on_issue_status_changed, on_sprint_started, on_sprint_completed
   pm_deadline: { days: N (за сколько дней до due_date PM-задачи, default 1), hour: 0-23 (час UTC ежедневного скана, default 7) }; в действиях доступны {{pm_title}}, {{pm_number}}, {{pm_due_date}}, {{pm_assignee_email}} (send_notification адресуйте username: '{{pm_assignee_email}}')
@@ -1285,6 +1290,7 @@ const CONFIRM_ACTION_DEF = {
     type: 'object',
     properties: {
       approved: { type: 'boolean', description: 'true = user confirmed, false = user rejected' },
+      confirmId: { type: 'string', description: 'id of the pending action (printed in the REQUIRES CONFIRMATION response). Required when several actions are pending.' },
     },
     required: ['approved'],
   },
@@ -2268,7 +2274,7 @@ async function dispatchTool(request) {
   if (name === 'delete_workspace') return handleDeleteWorkspace(args?.slug || '');
   if (name === 'clone_workspace') return handleCloneWorkspace(args || {});
   if (name === 'search_tools') return handleSearchTools(args?.query || '');
-  if (name === 'confirm_action') return handleConfirmAction(args?.approved === true);
+  if (name === 'confirm_action') return handleConfirmAction(args?.approved === true, args?.confirmId);
 
   // Check workspace is set
   if (!workspace) {
@@ -2277,7 +2283,10 @@ async function dispatchTool(request) {
 
   // Regular tool call → proxy to backend
   if (!activeTools.has(name)) {
-    return { content: [{ type: 'text', text: `Error: Tool "${name}" is not active. Use search_tools to discover and activate it first.` }], isError: true };
+    // PM-164: называем похожие инструменты, чтобы модель не подменяла имя.
+    const catalog = (allTools || []).map((t) => ({ name: t.name, group: t.group, description: t.description }));
+    const text = buildNotActiveText(name, catalog, [...activeTools]);
+    return { content: [{ type: 'text', text }], isError: true };
   }
 
   try {
@@ -2291,24 +2300,16 @@ async function dispatchTool(request) {
 
     // Check if this is a HITL confirmation request
     if (result?.status === 'pending_confirmation') {
-      // Evict expired entries
       const now = Date.now();
-      while (pendingHitlQueue.length && pendingHitlQueue[0].createdAt < now - HITL_QUEUE_TTL_MS) {
-        pendingHitlQueue.shift();
-      }
-      // Cap queue size
-      if (pendingHitlQueue.length >= HITL_QUEUE_MAX_SIZE) {
-        pendingHitlQueue.shift();
-      }
-      pendingHitlQueue.push({
+      const entry = enqueuePending(pendingHitlQueue, {
+        id: nextHitlId(),
         threadId: result.threadId,
         action: name,
         description: result.message || `Pending: ${name}`,
         createdAt: now,
-      });
-      const queueNote = pendingHitlQueue.length > 1 ? ` (${pendingHitlQueue.length} actions queued)` : '';
+      }, { now, ttlMs: HITL_QUEUE_TTL_MS, maxSize: HITL_QUEUE_MAX_SIZE });
       return {
-        content: [{ type: 'text', text: `⚠️ REQUIRES CONFIRMATION: ${result.message}${queueNote}\n\nAsk the user to confirm or reject, then call confirm_action(approved=true/false).` }],
+        content: [{ type: 'text', text: buildHitlConfirmationText({ tool: name, message: result.message, queued: pendingHitlQueue.length, confirmId: entry.id }) }],
       };
     }
 
@@ -2366,12 +2367,21 @@ async function dispatchTool(request) {
 
 // ─── confirm_action handler ──────────────────────────────────────────────────
 
-async function handleConfirmAction(approved) {
-  if (pendingHitlQueue.length === 0) {
+async function handleConfirmAction(approved, confirmId) {
+  // PM-241: подтверждение идёт ПО ИМЕНИ ожидания. Без имени берётся
+  // единственное ожидание; при нескольких — отказ с перечнем, не угадывание.
+  const taken = takePending(pendingHitlQueue, confirmId, { ttlMs: HITL_QUEUE_TTL_MS });
+  if (taken.error === 'EMPTY') {
     return { content: [{ type: 'text', text: 'No pending action to confirm.' }], isError: true };
   }
+  if (taken.error === 'AMBIGUOUS') {
+    return { content: [{ type: 'text', text: `Multiple pending actions; pass confirmId of the one the user approved: ${taken.available.join(', ')}.` }], isError: true };
+  }
+  if (taken.error === 'UNKNOWN_CONFIRM_ID') {
+    return { content: [{ type: 'text', text: `No pending action with confirmId "${confirmId}". Live ids: ${taken.available.join(', ') || 'none'}.` }], isError: true };
+  }
 
-  const pending = pendingHitlQueue.shift();
+  const pending = taken.entry;
   try {
     let msg;
     if (pending.onApprove) {
@@ -2393,7 +2403,7 @@ async function handleConfirmAction(approved) {
     }
 
     const remaining = pendingHitlQueue.length > 0 ? ` (${pendingHitlQueue.length} more pending — call confirm_action again)` : '';
-    return { content: [{ type: 'text', text: msg + remaining }] };
+    return { content: [{ type: 'text', text: `[${pending.action}] ${msg}${remaining}` }] };
   } catch (err) {
     return { content: [{ type: 'text', text: `Error confirming action: ${err.message}` }], isError: true };
   }
@@ -2448,13 +2458,8 @@ async function handleDeleteWorkspace(slug) {
   if (_pendingDeleteSlug !== slug) {
     _pendingDeleteSlug = slug;
     const now = Date.now();
-    while (pendingHitlQueue.length && pendingHitlQueue[0].createdAt < now - HITL_QUEUE_TTL_MS) {
-      pendingHitlQueue.shift();
-    }
-    if (pendingHitlQueue.length >= HITL_QUEUE_MAX_SIZE) {
-      pendingHitlQueue.shift();
-    }
-    pendingHitlQueue.push({
+    const entry = enqueuePending(pendingHitlQueue, {
+      id: nextHitlId(),
       threadId: `delete-ws-${slug}`,
       action: 'delete_workspace',
       description: `Permanently delete workspace "${slug}" and ALL its data`,
@@ -2474,7 +2479,7 @@ async function handleDeleteWorkspace(slug) {
         return `Workspace "${slug}" and all its data have been permanently deleted.`;
       },
       onReject: () => { _pendingDeleteSlug = null; },
-    });
+    }, { now, ttlMs: HITL_QUEUE_TTL_MS, maxSize: HITL_QUEUE_MAX_SIZE });
     return {
       content: [{ type: 'text', text: `⚠️ REQUIRES CONFIRMATION: Permanently delete workspace "${slug}" and ALL its data. This action is irreversible.\n\nAsk the user to confirm or reject, then call confirm_action(approved=true/false).` }],
     };
@@ -2830,17 +2835,95 @@ export function buildSearchToolsText(p) {
   if (p.builtinNames.length) {
     parts.push(`Already available (built-in): ${p.builtinNames.join(', ')}.`);
   }
+  // «Nothing new» обязано выходить и КОГДА встроенные совпали: раньше строка
+  // built-in возвращалась раньше ветки alreadyActiveNames, и повторный поиск
+  // отвечал только «Already available (built-in)», скрывая, что группа УЖЕ
+  // активна (инцидент PM-103, 14.09.2026 — модель так и не узнала, что
+  // коннекторы активированы).
+  if (!p.activatedNames.length && p.alreadyActiveNames.length) {
+    parts.push(`Nothing new: all ${p.alreadyActiveNames.length} tools matching "${p.query}" are already active ` +
+               `(${p.alreadyActiveNames.join(', ')}). Use them directly — no further search_tools call is needed.`);
+  }
   if (parts.length) return parts.join(' ');
 
-  // Ничего не активировано. Разбираем, почему именно.
-  if (p.alreadyActiveNames.length) {
-    return `Nothing new: all ${p.alreadyActiveNames.length} tools matching "${p.query}" are already active ` +
-           `(${p.alreadyActiveNames.join(', ')}). Use them directly — no further search_tools call is needed.`;
-  }
   const groupsMsg = p.knownGroups.length
     ? p.knownGroups.slice().sort().join(', ')
     : '(no tools loaded — select a workspace first)';
   return `No tools found matching "${p.query}". Available groups: ${groupsMsg}`;
+}
+
+// ─── PM-164: similar-name guard ──────────────────────────────────────────────
+
+/**
+ * Детерминированный поиск похожих имён: общие токены (по '_') или подстрока.
+ * Сам запрошенный тул не предлагается. Сортировка: больше общих токенов — выше.
+ */
+export function findSimilarTools(name, catalog, limit = 3) {
+  const tokens = (n) => n.split('_').filter(Boolean);
+  const nameToks = new Set(tokens(name));
+  const scored = [];
+  for (const t of catalog) {
+    if (t.name === name) continue;
+    let shared = 0;
+    for (const tok of tokens(t.name)) {
+      if (nameToks.has(tok)) shared += 1;
+      else if (t.name.includes(name) || name.includes(t.name)) shared += 1;
+    }
+    if (shared === 0) continue;
+    scored.push({ tool: t, score: shared });
+  }
+  scored.sort((a, b) => b.score - a.score || a.tool.name.localeCompare(b.tool.name));
+  return scored.slice(0, limit).map((s) => s.tool);
+}
+
+/**
+ * Текст ошибки «тул не активен» с подсказкой похожих: активный похожий тул —
+ * с ПРЯМЫМ запретом подмены; неактивный — с подсказкой активировать группу.
+ */
+export function buildNotActiveText(name, catalog, activeNames) {
+  const similar = findSimilarTools(name, catalog);
+  if (!similar.length) {
+    return `Error: Tool "${name}" is not active. Use search_tools to discover and activate it first.`;
+  }
+  const activeSet = new Set(activeNames);
+  const activeHits = similar.filter((t) => activeSet.has(t.name));
+  const inactiveHits = similar.filter((t) => !activeSet.has(t.name));
+  const lines = [`Error: Tool "${name}" is not active. Use search_tools to discover and activate it first.`];
+  if (activeHits.length) {
+    const listed = activeHits.map((t) => `"${t.name}" (group "${t.group}")`).join(', ');
+    lines.push(
+      `⚠️ Similar tool ${listed} IS ACTIVE but is a DIFFERENT tool. Do NOT call it instead of "${name}".`,
+    );
+  }
+  if (inactiveHits.length) {
+    const listed = inactiveHits.map((t) => `"${t.name}" (group "${t.group}")`).join(', ');
+    const groups = [...new Set(inactiveHits.map((t) => t.group).filter(Boolean))];
+    lines.push(
+      `Similar inactive tool(s): ${listed}. If one of these is what you meant, activate its group first: ` +
+        groups.map((g) => `search_tools("${g}")`).join(' or ') +
+        ` — then call the tool by its exact name.`,
+    );
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Текст REQUIRES CONFIRMATION: первой строкой имя вызываемого тула
+ * (PM-164: пять подтверждений промаха прошло, потому что имя не показывалось),
+ * предупреждение о похожих именах и confirmId (PM-241).
+ */
+export function buildHitlConfirmationText(p) {
+  const message = p.message || `Pending: ${p.tool}`;
+  const queueNote = p.queued > 1 ? ` (${p.queued} actions queued)` : '';
+  const confirmLine = p.confirmId ? `\nconfirm id: ${p.confirmId}\nAsk the user to confirm or reject, then call confirm_action(approved=true/false, confirmId="${p.confirmId}").` : '\nAsk the user to confirm or reject, then call confirm_action(approved=true/false).';
+  return (
+    `⚠️ REQUIRES CONFIRMATION — tool: ${p.tool}${queueNote}\n` +
+    `${message}\n\n` +
+    `Before asking the user, verify the tool name above is what you intended — ` +
+    `similar names are different tools (e.g. set_grant is access rights, ` +
+    `set_portal_config is portal config).` +
+    confirmLine
+  );
 }
 
 async function handleSearchTools(query) {
