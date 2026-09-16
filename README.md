@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/integram-mcp)](https://www.npmjs.com/package/integram-mcp)
 
-MCP-сервер для Integram — даёт доступ к 737 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
+MCP-сервер для Integram — даёт доступ к 740 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
 
 Работает с облачным Integram на **ai2o.online** или с локальным сервером.
 
@@ -15,7 +15,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=https://ai2o.online \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.70
+  -- npx -y integram-mcp@0.7.71
 ```
 
 Ставить ничего не нужно: `npx` скачает пакет сам.
@@ -43,7 +43,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=http://localhost:8081 \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.70
+  -- npx -y integram-mcp@0.7.71
 ```
 
 Удалить: `claude mcp remove integram`
@@ -57,7 +57,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.70"],
+      "args": ["-y", "integram-mcp@0.7.71"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -77,7 +77,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.70"],
+      "args": ["-y", "integram-mcp@0.7.71"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -189,6 +189,7 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 | **bulk** | Массовые операции: создание, обновление, удаление, AI-batch | 4 |
 | **dlp** | Контур защиты от утечек: DLP-правила воркспейса (список, создание, правка, удаление; только admin) | 4 |
 | **ai** | Синтез речи (TTS): озвучка текста, список голосов | 3 |
+| **finmodel** | Финмодели: посчитанная сетка по периодам и сценариям, граф зависимостей ячеек, подбор параметров (goal-seek) с записью решения | 3 |
 | **normalizer** | Разбор документов: запуск, состояние, подтверждение сопоставления | 3 |
 | **timeseries** | Временные ряды: запись, запрос, список источников | 3 |
 | **history** | История изменений объектов, откат | 2 |

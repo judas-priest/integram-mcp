@@ -2238,6 +2238,10 @@ const EN_DESCRIPTIONS = {
   vid_list_jobs: 'List video-engine jobs of the workspace.',
   vid_cancel_job: 'Cancel a video-engine job (if it has not finished yet).',
   vid_validate_scenario: 'Validate a video scenario against the schema without creating anything: returns normalized steps or errors.',
+  // Financial model
+  fin_grid: 'Computed financial-model grid: period columns, rows with per-period values, totals and the sheet structure. scenario picks a scenario (defaults to the model first one), sheetId narrows to one sheet. Rows with an id like "g123" are group subtotals and have no record in the database.',
+  fin_graph: 'Dependency graph of a financial model: the order cells are computed in and which cell depends on which. A circular reference is returned in the cycle field with an empty order — in that case the grid does not compute at all.',
+  fin_goal_seek: 'Goal seek: which levers bring a target cell to the wanted value. target.rowId is a row id (or "g123" for a group subtotal), levers are input rows that may change, with optional min/max bounds. Without apply:true it only computes; with apply:true it writes the solution, and only when the target was reached. Failure is named in reason: unknown_target, no_sensitivity, flat, bounds, no_convergence.',
 
 };
 
@@ -2678,6 +2682,9 @@ export const GROUP_ALIASES = {
   инструмент: 'workspace-tools', пакет: 'workspace-tools', организац: 'orgs',
   найткол: 'nightcall', требован: 'nightcall', спецификац: 'nightcall', верификац: 'nightcall',
   формализ: 'nightcall', formaliz: 'nightcall', governance: 'nightcall', evidence: 'nightcall',
+  // Само имя группы `finmodel` по-русски не ищется: слово «финмодель» с ним не
+  // совпадает ни одной из сторон.
+  финмодел: 'finmodel',
 };
 
 /**
