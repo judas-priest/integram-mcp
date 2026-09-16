@@ -832,7 +832,7 @@ Public links for views and records. Activate via search_tools("workspace share r
 
 ## Connectors
 
-External data integrations. Activate via search_tools("workspace connectors"); narrow it: search_tools("workspace api docs fetch") for the AI setup workflow, search_tools("workspace connector test draft schema") for testing and schema generation, search_tools("workspace connectors cdek reconcile") for CDEK reconciliation.
+External data integrations. Activate via search_tools("workspace connectors"); narrow it: search_tools("workspace api docs fetch") for the AI setup workflow, search_tools("workspace connector test draft schema") for testing and schema generation, search_tools("workspace connectors cdek reconcile") for CDEK reconciliation, search_tools("delete connector") to remove one.
 - list_connectors, get_connector, create_connector, update_connector, delete_connector, run_connector, reconcile_cdek
 - list_connector_presets — available presets (1C, SAP, SCADA, REST templates)
 - AI-assisted connector setup workflow:
