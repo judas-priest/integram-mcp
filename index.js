@@ -206,10 +206,54 @@ async function checkForUpdate() {
 // Приписывает сигнал к КАЖДОМУ ответу инструмента, пока юзер не обновится:
 // одноразовая приписка в длинной сессии теряется, а устаревшая сборка — это
 // дыра против юзера (нет новых тулов и фиксов до ручного обновления).
-function withUpdateNotice(result) {
-  if (!updateNotice) return result;
+export function withUpdateNotice(result) {
   if (!result || !Array.isArray(result.content)) return result;
-  return { ...result, content: [...result.content, { type: 'text', text: updateNotice }] };
+  let extra = [];
+  if (updateNotice) extra.push(updateNotice);
+  if (unreadNotice) { extra.push(unreadNotice); unreadNotice = null; }
+  if (!extra.length) return result;
+  return { ...result, content: [...result.content, { type: 'text', text: extra.join('\n') }] };
+}
+
+// ─── Сводка непрочитанных при старте ────────────────────────────────────────
+//
+// Канал «сервер MCP → модель → пользователь» без подписок из спецификации
+// 2026-07-28 (в Claude Code их ещё нет): приписка к ответу инструмента.
+// Одноразовая — сводка в каждом ответе была бы спамом (сигнал обновления
+// приписывается ДО ОБНОВЛЕНИЯ к каждому — там одноразовость вредна).
+
+let unreadNotice = null;
+
+export function setUnreadNotice(text) { unreadNotice = text; }
+
+export function buildUnreadNoticeText(data) {
+  if (!data || !Array.isArray(data.items)) return null;
+  const busy = data.items.filter((i) => i.count > 0);
+  if (!busy.length) return null;
+  return [
+    `🔔 Непрочитанные уведомления: ${busy.map((i) => `${i.workspace} — ${i.count}`).join(', ')}.`,
+    'Скажи пользователю, где висит непрочитанное. Прочитать: switch_workspace на воркспейс и list_notifications.',
+  ].join(' ');
+}
+
+async function checkUnreadNotifications() {
+  try {
+    await ensureAuth();
+    let db = workspace;
+    if (!db) {
+      const list = await apiFetch('/api/v2/workspaces');
+      const first = (list.data || list)[0];
+      if (!first?.slug) return;
+      db = first.slug;
+    }
+    const data = await apiFetch(`/api/v2/${db}/notifications/across-workspaces`);
+    const payload = data.data || data;
+    const text = buildUnreadNoticeText(payload);
+    if (text) {
+      setUnreadNotice(text);
+      log(text);
+    }
+  } catch { /* нет сети, бэкенд недоступен — работе сервера не мешает */ }
 }
 
 // ─── Tool definitions cache ──────────────────────────────────────────────────
@@ -865,6 +909,7 @@ query_audit(type?, actor?, dateFrom?, dateTo?, action?, objectId?, typeId?, repo
 - get_notification_count() — number of unread notifications for current user
 - get_unread_across_workspaces() — unread counts across all user's workspaces
 - notification_action(notifId, actionKey) — execute action on a notification (e.g. approve/reject a suspended automation). Requires confirmation.
+- On startup the server may append an unread-notifications summary to the first tool response — surface it to the user once, then drop it.
 
 ## Workspace admin
 
@@ -893,7 +938,7 @@ Client-facing portal management. Activate via search_tools("portal"); for @kit b
 
 **Configuration:**
 - get_portal_config() — current portal config (branding, pages, modules, auth, chat, SEO)
-- set_portal_config(config, active, custom_domain, merge?) — create/replace full config. With \`merge: true\` — deep-merge partial config into existing (no need to send entire config; only changed fields). Arrays are NOT merged — a partial \`pages[]\` replaces every page; for a one-module change use update_portal_module. **Requires confirmation.**
+- set_portal_config(config, active, custom_domain, merge?) — create/replace full config. For \`custom_domain\`: omit it to keep the current value; \`null\` or empty string clears it. With \`merge: true\` — deep-merge partial config into existing (no need to send entire config; only changed fields). Arrays are NOT merged — a partial \`pages[]\` replaces every page; for a one-module change use update_portal_module. **Requires confirmation.**
 - update_portal_module(slug, config, moduleIndex) — update one module without overwriting others. Shallow merge into modules[moduleIndex ?? 0].config — keys you pass replace, keys you omit survive. If the MCP tool call cannot be issued, the equivalent REST is workspace-admin JWT → POST /api/v2/:db/portal/api/config (same upsertConfig + cache invalidation). Both writers validate references: custom_code repo/file and bindings table:N must exist in THIS workspace, otherwise the save is rejected (REPO_NOT_IN_WORKSPACE / FILE_NOT_IN_REPO / TABLE_NOT_IN_WORKSPACE; defects already present in the previous config do not block the edit). Every save snapshots the previous config to history: GET /api/v2/:db/portal/api/config/history lists snapshots, POST .../config/restore {historyId} rolls back (REST, admin JWT).
 - portal_preview() — get preview URL
 - portal_publish(active) — publish (true) or unpublish (false). **Requires confirmation.**
@@ -3082,6 +3127,9 @@ async function main() {
 
   // 1. Login
   await login();
+
+  // Сводка непрочитанных — fire-and-forget: старт не должен зависеть от бэкенда.
+  checkUnreadNotifications();
 
   // 2. Fetch tool definitions (if workspace is set)
   if (workspace) {

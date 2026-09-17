@@ -15,7 +15,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=https://ai2o.online \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.71
+  -- npx -y integram-mcp@0.7.76
 ```
 
 Ставить ничего не нужно: `npx` скачает пакет сам.
@@ -43,7 +43,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=http://localhost:8081 \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.71
+  -- npx -y integram-mcp@0.7.76
 ```
 
 Удалить: `claude mcp remove integram`
@@ -57,7 +57,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.71"],
+      "args": ["-y", "integram-mcp@0.7.76"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -77,7 +77,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.71"],
+      "args": ["-y", "integram-mcp@0.7.76"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -110,6 +110,10 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 Проверка не блокирует запуск, молчит без сети и глушится переменными `NO_UPDATE_NOTIFIER=1` (общепринятое соглашение) или `INTEGRAM_MCP_NO_UPDATE_CHECK=1`. Ответ реестра кэшируется на сутки в системном временном каталоге. Бета-версии не предлагаются тому, кто сидит на стабильной.
 
 Чего здесь намеренно нет: пакета `update-notifier` — он печатает в `stdout` и только при TTY, то есть под stdio-транспортом не сработает и сломает протокол; и протокольного `notifications/message` — он объявлен устаревшим в версии протокола `2026-07-28`, а отправка до `initialize` ломает строгие клиенты.
+
+## Уведомления
+
+- On startup the server checks unread notifications across workspaces and appends a summary to the first tool response.
 
 ## Переменные окружения
 
