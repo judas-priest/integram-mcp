@@ -1994,7 +1994,7 @@ const EN_DESCRIPTIONS = {
   portal_preview: 'Get the portal preview URL.',
   portal_publish: 'Enable (active=true) or disable (active=false) the portal. Requires confirmation.',
   // Telegram management
-  list_telegram_bots: 'List workspace Telegram bots. Returns ID, name, username, enabled, webhook_secret, config.',
+  list_telegram_bots: 'List workspace Telegram bots. Returns ID, name, username, enabled, config.',
   create_telegram_bot: 'Create a new Telegram bot. Registers the webhook automatically. name — display name, username — the @username of the bot in Telegram, token — the token from @BotFather. config.commands — array of commands: [{command:"/status", description:"Status", action:"reply", replyText:"Your order..."}]. Requires confirmation.',
   update_telegram_bot: 'Update a Telegram bot. If token changes, the webhook is re-registered. Requires confirmation.',
   delete_telegram_bot: 'Delete a Telegram bot. Irreversible. Requires HITL confirmation.',
