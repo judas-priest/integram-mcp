@@ -318,37 +318,7 @@ Server: ${BASE_URL}
 ## Tool discovery
 Stuck or unsure how the platform works? docs_map() and docs_search(query) are active from the start and read the platform docs corpus (115 documents: backend, portal, frontend, ADRs, guides). Use them before guessing.
 
-Only core tools (CRUD, search, docs corpus, graph, comments, bulk, history) are loaded by default. Use search_tools to activate more — it reports how many tools it activated and names them:
-- "advisor" — platform expert: ask_advisor, list_platform_capabilities, docs_read, docs_tool
-- "schema" — create/modify tables and columns, AI/HTTP/script buttons, computed columns (LOOKUP/ROLLUP/FORMULA), validation rules, AI formula generation
-- "reports" — create, run, export reports with aggregation, joins and filters
-- "docs" — documents, blocks, folders, tags, sharing, versions, templates, PDF generation
-- "workspace" — files, import/export, connectors, members, backups, dashboards, view/record sharing, audit log, normalizer, automations, webhooks, forms
-- "portal" — portal config, catalog, carts, orders, tickets, KB articles, metrics, customer profiles, Telegram bots, @kit component catalog
-- "telegram" — Telegram bot management, messaging, moderation, payments, stories, business API (subset of portal group)
-- "grants" — roles, grants, row-level rules, member access (admin only)
-- "codespace" — git repositories: branches, commits, files, pull requests, conflict-safe writes
-- "teamchat" — rooms, topics, messages, decisions, agent metrics, W-matrix (ONA)
-- "graph" — get_related, graph_query, neighborhood, shortest path, health, memory agents
-- "meta-kb" — debate-based knowledge curation: start debates, parallel experts, LLM synthesis
-- "kag" — knowledge-augmented generation: search, traverse, ask, import, browse, stats, clusters, anomalies
-- "memory" — agent long-term memory, recall, procedures, contradictions
-- "timeseries" — record, query, and list time-series data sources
-- "dlp" — data loss prevention rules: list/create/update/delete (admin)
-- "presentations" — PPTX engine: create/update presentations, versions, sharing, export/import (pptx/pdf)
-- "normalizer" — AI document pipeline: classify, extract, resolve, populate; normalization jobs
-- "workspace-tools" — per-workspace custom sandbox tools: list, register, execute
-- "ai" — text-to-speech synthesis (TTS): speak text, list voices, check TTS service status
-- "agents" — list and delegate to external AI agents
-- "pm" — project management: issues CRUD + bulk ops, checklists, sprints, board, backlog, comments CRUD, issue links, data-links (issue ↔ table/document/report), watchers, templates, trash/restore, members, CSV export, metrics (velocity, burndown, cycle time, workload), AI helpers (triage, decompose, estimate, plan sprint, detect blockers), org aggregation (portfolio, people, cross-project issues)
-- "nightcall" — specification-driven execution: CNM requirements graph, formalization proposals (Extraction IR → governance decisions), artifact specifications, EffectiveSpecification resolver, execution compiler, directed-retry pipeline run, evidence verification, compliance/release decisions, waivers
-- "orgs" — организации: CRUD, участники, приглашения, состав и должности, привязка областей; сводки PM по организации: org_my_issues (мои задачи всех областей, курсор), org_portfolio, org_people (нагрузка), org_activity (лента изменений), org_metrics (velocity/cycle/lead), org_search (поиск записей по всем областям)
-- "bulk" — bulk_create, bulk_update, bulk_delete, autofill_batch
-- "comments" — comments, reactions on records
-- "history" — object change history, rollback
-- "objects" — move, reorder, duplicate records
-- "lookups" — get lookup options, ref options
-- "automations" — get automation details, webhook delivery log
+Only core tools (CRUD, search, docs corpus, graph, comments, bulk, history) are loaded by default. Use search_tools to activate more — it reports what it activated and names the tools, so it doubles as the group catalog.
 
 ---
 
@@ -364,45 +334,6 @@ Phrase triggers — user wording maps to a tool group; activate it and use its t
 - Never invent due_date; set it only if the user named a date. Done-статус — переходом через pm_update_issue, не сразу при создании.
 - Child issues do NOT inherit labels from their epic — set labels explicitly on every create.
 - Ask ONLY when: the wording fits both a PM task and something else (EAV record / document), or a bulk breakdown (>3 tasks) has no obvious split.
-
-## Column types (colTypeName for add_column / type for plan_schema)
-
-| colTypeName | UI | Use when |
-|---|---|---|
-| text, string | single-line input | free-form unique values: name, title, URL, address, article code |
-| phone | phone input | phone number with click-to-call: mobile, tel, телефон |
-| email | email input | email address with mailto link: email, mail, почта |
-| memo, multiline | textarea | long text: description, notes, comment, bio, summary |
-| number | numeric input | price, cost, amount, qty, score, rating, age, salary, budget |
-| date | date picker | birthday, deadline, start date, hire date |
-| datetime | date+time picker | event time, created_at, timestamp, log entry |
-| bool, checkbox | toggle | flag: active, paid, approved, done, published, verified |
-| file | file upload | attachment, photo, image, document, avatar |
-| pwd, password | masked input | password, secret, API key (stored hashed) |
-| uuid | auto-generated | unique identifier |
-| url | URL input | website, link, external resource |
-| duration | duration input | time duration: hours, minutes (e.g. task effort) |
-| currency | currency input | monetary values with currency symbol |
-| percent | percentage input | percentage values (0–100) |
-| rating | star rating | ratings, scores (1–5 stars) |
-| status | status badge | workflow status with color coding |
-| choice | choice/select | single choice from predefined options |
-| collaborator, пользователь | user picker | workspace member: assignee, responsible person; value is the user's id (accepts id, email or username on write); filterable, supports [USER_ID] in report filters |
-| http_button | clickable button | HTTP request per row (see HTTP Buttons section) |
-| script_button | clickable button | JavaScript per row (see Script Buttons section) |
-| ai_button | clickable button | AI prompt per row (see AI Buttons section) |
-| ai | clickable button | alias for ai_button |
-
-**IMPORTANT — semantic type inference:**
-Choose type by the MEANING of the field, not just the word:
-- "Phone", "Mobile", "Tel" → phone (type 30, renders with call icon)
-- "Email", "Mail" → email (type 41, renders as mailto: link)
-- "Website", "URL" → text (NOT number, NOT special type)
-- "Price", "Salary", "Budget", "Score", "Age", "Rating" → number
-- "Birthday", "Deadline", "Start date" → date
-- "Description", "Notes", "Comment", "Bio" → memo
-- "Active", "Done", "Published", "Verified" → bool
-- "Status", "Priority", "Category", "City", "Department", "Stage", "Type", "Tags" → **NOT text!** → ref to a lookup table (see below)
 
 ## Data modeling — the DECISION TREE
 
@@ -757,8 +688,8 @@ Block-based documents (like Notion). Activate via search_tools("документ
 - list_documents(search, folderId) — browse documents
 - get_document(docId) / get_document_blocks(docId) — read content and block structure
 - create_document(title, parentId) — create new doc (parentId for nesting)
-- append_block(docId, text, type) — add block at end. Types: text, heading, code, quote, list, todo.
-- update_block(docId, blockId, text) — modify existing block
+- append_block(docId, text, type, format) — add block at end. Types: text, heading, code, quote, list, todo. format:"delta" — text is a ready Quill delta {"ops":[…]}; without it, markdown autodetect/plain text.
+- update_block(docId, blockId, text, format) — modify existing block. format:"delta" — text is a ready Quill delta {"ops":[…]}; without it, plain text.
 - delete_block(docId, blockId) — remove block
 - update_document_title(docId, title)
 - delete_document(docId) — move document to trash (requires confirmation)
@@ -784,11 +715,13 @@ Event-driven rules: when X happens → check condition → do Y. Activate via se
 
 create_automation({ name, trigger: { type, typeId }, active?, condition, actions: [{ type, …плоские ключи действия }] }) — действия хранятся с ПЛОСКИМИ ключами: { type: 'run_script', script: '…' }, вложенного config нет
 - active: false — создать выключенной (по умолчанию включена; выключенная не встаёт в расписание и не срабатывает)
-- Trigger types: on_create, on_update, on_delete, on_deadline, on_webhook, on_form_submit, schedule, manual, ai_analysis, on_metric_threshold, on_metric_silence, on_document, on_ncl_run_completed, on_ncl_requirement_created, on_ncl_evidence_stale, on_telegram_command, on_telegram_message, on_telegram_pre_checkout, on_telegram_shipping, on_telegram_payment, on_telegram_inline, on_telegram_join_request, on_telegram_business_connection, on_telegram_business_message, on_bot_chat_member, pm_deadline, on_issue_commented, on_issue_updated, on_issue_created, on_issue_status_changed, on_sprint_started, on_sprint_completed
+- Trigger types: on_create, on_update, on_delete, on_deadline, on_webhook, on_form_submit, schedule, manual, ai_analysis, on_metric_threshold, on_metric_silence, on_document, on_ncl_run_completed, on_ncl_requirement_created, on_ncl_evidence_stale, on_telegram_command, on_telegram_message, on_telegram_pre_checkout, on_telegram_shipping, on_telegram_payment, on_telegram_inline, on_telegram_join_request, on_telegram_business_connection, on_telegram_business_message, on_bot_chat_member, pm_deadline, on_issue_commented, on_issue_updated, on_issue_created, on_issue_status_changed, on_sprint_started, on_sprint_completed, on_file_processed
+  on_file_processed: { status?: 'done'|'error'|'skipped'|'confirmed' (пусто = любой терминальный) }; в действиях доступны {{file_id}}, {{file_object_id}}, {{file_status}}, {{file_error}}, {{file_name}}
   pm_deadline: { days: N (за сколько дней до due_date PM-задачи, default 1), hour: 0-23 (час UTC ежедневного скана, default 7) }; в действиях доступны {{pm_title}}, {{pm_number}}, {{pm_due_date}}, {{pm_assignee_email}} (send_notification адресуйте username: '{{pm_assignee_email}}')
   on_issue_commented / on_issue_updated: событие PM-задачи (комментарий / правка полей), pm-переменные те же
-- Actions: send_notification, send_notification_to_group, update_field, create_object, delete_object, fire_webhook, run_ai_agent, run_script, run_server_function, run_video_job, send_telegram, send_telegram_media, create_document, run_connector, send_email, update_related_records, set_requisite, update_related, http_request, if_else, switch, transform, wait_delay, request_approval, delegate_to_agent, invoke_agent, send_invoice, telegram_forward, answer_inline_query, telegram_ban, telegram_unban, telegram_restrict, telegram_promote, telegram_approve_join, telegram_decline_join, telegram_pin, telegram_unpin, telegram_get_chat, telegram_post_story, answer_shipping, telegram_business_reply, create_issue, update_issue
+- Actions: send_notification, send_notification_to_group, update_field, create_object, delete_object, fire_webhook, run_ai_agent, run_script, run_server_function, run_video_job, send_telegram, send_telegram_media, create_document, run_connector, send_email, update_related_records, set_requisite, update_related, http_request, if_else, switch, transform, wait_delay, request_approval, delegate_to_agent, invoke_agent, send_invoice, telegram_forward, answer_inline_query, telegram_ban, telegram_unban, telegram_restrict, telegram_promote, telegram_approve_join, telegram_decline_join, telegram_pin, telegram_unpin, telegram_get_chat, telegram_post_story, answer_shipping, telegram_business_reply, create_issue, update_issue, link_issue
   create_issue: { title, description?, issue_type?, priority?, assignee_id?, parent_id?, board_id?, sprint_id?, due_date?, estimate?, labels?, assigneeRole?, assigneeStrategy? } — создаёт PM-задачу; результат: {{_created_issue_id}}, {{_created_issue_number}}. assigneeRole — имя EAV-таблицы-роли воркспейса (строки = участники, у каждого логин в колонке «Логин»/«Username»/«Email», колонка ищется по имени или алиасу); assigneeStrategy: least_busy (умолчание) | first; assignee_id и assigneeRole взаимно исключают друг друга — конфликт отвергается при сохранении. Роль без резолвимых участников → задача без исполнителя + уведомление роли (или триггера), прогон не падает.
+  link_issue: { issue_id?, issue_number?, target_type?, target_id? } — привязывает задачу к цели через data-links (issue_id или issue_number; без них берётся {{_created_issue_id}} предыдущего create_issue); 409 (связь уже стоит) считается успехом.
   update_issue: { id, title?, description?, issue_type?, status?, priority?, assignee_id?, sprint_id?, parent_id?, estimate?, due_date?, labels? } — правит PM-задачу; id можно взять из {{pm_issue_id}}
   update_related_records: { childTypeId, matchRefReqId, targetTypeId, targetMatchReqId, targetFieldReqId, sourceFieldReqId, operation: 'add'|'subtract'|'set' } — declarative cross-table update (e.g. inventory deduction: order items → match product ref → subtract from stock)
   run_server_function: { repo, fn, args?, resultVar?, idempotencyKey?, idempotencyMinutes? } — call a codespace server function (api/<fn>.js in a workspace git repo) from an automation; this is how repo code gets put on a schedule (trigger.type: 'schedule'), which previously was impossible since server functions were reachable only over HTTP from the portal. Same sandbox, capabilities and limits as the portal path (codespace/server-fn-executor.js); capabilities are declared by a "// capabilities:" comment inside the function file. Replay protection is ON by default: repo+fn+args+record runs once per idempotencyMinutes (default 1) — keep it BELOW the schedule interval or runs are silently skipped; 0 disables it. A failed call releases its claim so the next run retries. Sets {{_server_fn_error}} / {{_server_fn_skipped}}.
@@ -938,8 +871,6 @@ Client-facing portal management. Activate via search_tools("portal"); for @kit b
 
 **Configuration:**
 - get_portal_config() — current portal config (branding, pages, modules, auth, chat, SEO)
-- set_portal_config(config, active, custom_domain, merge?) — create/replace full config. For \`custom_domain\`: omit it to keep the current value; \`null\` or empty string clears it. With \`merge: true\` — deep-merge partial config into existing (no need to send entire config; only changed fields). Arrays are NOT merged — a partial \`pages[]\` replaces every page; for a one-module change use update_portal_module. **Requires confirmation.**
-- update_portal_module(slug, config, moduleIndex) — update one module without overwriting others. Shallow merge into modules[moduleIndex ?? 0].config — keys you pass replace, keys you omit survive. If the MCP tool call cannot be issued, the equivalent REST is workspace-admin JWT → POST /api/v2/:db/portal/api/config (same upsertConfig + cache invalidation). Both writers validate references: custom_code repo/file and bindings table:N must exist in THIS workspace, otherwise the save is rejected (REPO_NOT_IN_WORKSPACE / FILE_NOT_IN_REPO / TABLE_NOT_IN_WORKSPACE; defects already present in the previous config do not block the edit). Every save snapshots the previous config to history: GET /api/v2/:db/portal/api/config/history lists snapshots, POST .../config/restore {historyId} rolls back (REST, admin JWT).
 - portal_preview() — get preview URL
 - portal_publish(active) — publish (true) or unpublish (false). **Requires confirmation.**
 
@@ -1010,7 +941,7 @@ Client-facing portal management. Activate via search_tools("portal"); for @kit b
 - telegram_set_business_bio(botId, businessConnectionId, bio) — set bio (0-140 chars). **Requires confirmation.**
 - telegram_set_business_name(botId, businessConnectionId, firstName, lastName?) — set account name. **Requires confirmation.**
 
-Bot config schema: { description?: "...", shortDescription?: "...", welcomeMessage?: "...", menuButton?: {type: "commands"|"web_app"|"default"}, employeeTable?: {typeId, chatIdReqId, roleReqId} }.
+Bot config schema: { description?: "...", shortDescription?: "...", welcomeMessage?: "...", menuButton?: {type: "commands"|"web_app"|"default"}, employeeTable?: {typeId, chatIdReqId, roleReqId, emailReqId?} }.
 Bot reactions (commands + keywords) are stored as **automations** with trigger.botId — use create_automation with:
 - Command: trigger: { type: "on_telegram_command", command: "status", botId: N }
 - Keyword: trigger: { type: "on_telegram_message", pattern: "привет,hello", matchMode: "contains", botId: N }
@@ -1481,7 +1412,7 @@ const EN_DESCRIPTIONS = {
   // Meta-KB
   mk_revoke_entity: 'Revoke all knowledge base entities derived from a specified decision. Use when a decision was found to be incorrect. Returns { revoked: number, message: string }.',
   mk_list_debates: 'List recent expert debates in the workspace. Returns { debates: Array, total: number }. Each debate has id, question, consensus, verdict, created_by, created_at.',
-  mk_start_debate: 'Start an expert debate on a question. Internal workspace agents evaluate the question in parallel, then cross-examine, then synthesize a consensus. Returns { opinions, crossTurns, consensus }.',
+  mk_start_debate: 'Start an expert debate on a question. Internal workspace agents evaluate the question in parallel, then cross-examine, then synthesize a consensus. Returns { consensus, debateId, stats }. Full protocol: mk_get_debate(debateId). Optional fast: true skips the cross-examination phase.',
   mk_analytics: 'Get knowledge base analytics: entity/relation/class counts, orphan nodes, breakdown by source/type/status.',
   mk_research: 'Research a concept in the knowledge graph: find matching entities, graph neighbors, and knowledge gaps.',
   mk_propose_change: 'Propose a knowledge base change (add/update/delete entity). Creates a change request for human review. Returns { id, status: "pending" }.',
@@ -1675,13 +1606,13 @@ const EN_DESCRIPTIONS = {
   search_tools: 'Discover and activate additional tools by keyword. Use when you need a capability missing from the current set (reports, schema, permissions, documents, automations).',
   list_tables: 'List workspace tables. Returns ID, name, column count, creation date. Supports search and sorting. Returns: { items:[{id,name,columns}], total }.',
   list_objects: 'Get records from a table. THE ONLY source of record data — always call for "how many records", "show", "find". Response has fields aliased by column name plus summary (aggregation over ref columns: top values with counts). Filter with where: { "Column name": "value" } — simple substring match, e.g. { "Status": "Active" }. Use search for full-text lookup when the column alias is unknown. VIEWS: pass viewId to apply the filters of a saved view automatically (list them via list_views); viewId combines with where (extra filters applied on top). PAGINATION: if hasMore=true, request page=2,3... until all data collected. USE summary FOR THE BIG PICTURE: do not enumerate all rows when there are many — rely on summary (distribution by country, type, manufacturer). Records without a value appear as a separate { value: null, count: N, noValue: true } row — count them or "how many X" won\'t match total. For a single ref the count sum equals total; for a multi ref (:MULTI:) it is legitimately larger. If _summaryTruncated is set, only the most frequent values are shown for those columns.',
-  get_object: 'Get a full object record by ID. Returns: { id, type:"object", ...fields }. Error: { error:"NOT_FOUND", message }.',
+  get_object: 'Get a full object record by ID. Returns: { id, type:"object", ...fields }. Error: { error:"NOT_FOUND", message }. NOT for documents: if the ID is a document, use get_document(docId).',
   resolve_client: 'Recompute a client golden record from source rows using deterministic survivorship rules: per-field source priority + validators + lineage. Governed writeback — the only sanctioned way to write golden fields. Returns: { clientId, resolved, lineage, conflicts, goldenAddressId }.',
   list_specs: 'List specs (declarative data invariants) of a table. Returns: { items:[{id,name,definition,enabled}], total }.',
   check_record: 'Check a record against its table specs (or a specific specId). Returns: { objectId, pass, results:[{specId,name,pass,violations:[{field,op,problem}]}] }.',
   run_spec: 'Run a spec across all records of a table and return violating rows. Returns: { specId, name, checked, failed, capped, violations:[{objectId,name,violations}] }.',
   verify_client_shipping: 'Check whether a client is ready for physical shipping: valid phone, golden address, no unresolved source conflicts. Read-only. Returns: { clientId, ready, issues:[{field,problem}], conflicts }.',
-  create_object: 'Create a new record in a table. For child-table records pass parentId — the parent record ID. Ref fields accept either an id (number) or the exact record name — the backend resolves name to id; ambiguous names throw an error (pass id instead). Returns: { id, type:"object", name, message }.',
+  create_object: 'Create a new record in a table. For child-table records pass parentId — the parent record ID. Ref fields accept either an id (number) or the exact record name — the backend resolves name to id; ambiguous names throw an error (pass id instead). NOT for PM tasks: "create a task" — pm_create_issue. Returns: { id, type:"object", name, message }.',
   update_object: 'Update fields of an existing record. Ref fields accept an id or the exact record name (resolved by backend). Returns: { id, type:"object", message }.',
   delete_object: 'Delete a RECORD (object/row) from a table (requires confirmation). NOT for deleting tables — use delete_table for that. Returns: { message }.',
   semantic_search: 'Semantic search across the whole workspace — finds meaningfully similar objects and documents. Use to find "something about X" without an exact name. Do NOT use for structural queries or when you already know the typeId.',
@@ -1695,11 +1626,11 @@ const EN_DESCRIPTIONS = {
   // Documents
   list_documents: 'List workspace documents. Returns ID, title, author, created/updated dates. Returns: { items:[{id,title}], total }.',
   search_documents: 'Search documents by keywords. For meaning-based search use semantic_search.',
-  get_document: 'Get document content by ID. Returns: { id, type:"document", title, blocks:[...] }.',
-  get_document_blocks: 'Get the list of document blocks with their IDs.',
+  get_document: 'Get document content by ID. Returns: { id, type:"document", title, blocks:[...] }. If docId is a table record ID, use get_object(objId). List blocks only — get_document_blocks(docId).',
+  get_document_blocks: 'Get the list of document blocks with their IDs. For the full document content use get_document(docId).',
   update_document_title: 'Change a document title. Returns: { id, type:"document", title, message }.',
-  append_block: 'Append a text block to the end of a document. Returns: { type:"block", docId, message }.',
-  update_block: 'Update the content of a document block. Returns: { id, type:"block", docId, message }.',
+  append_block: 'Append a text block to the end of a document. format:"delta" — text is a ready Quill delta {"ops":[…]}; without it, markdown autodetect/plain text. Returns: { type:"block", docId, message }.',
+  update_block: 'Update the content of a document block. format:"delta" — text is a ready Quill delta {"ops":[…]}; without it, plain text. Returns: { id, type:"block", docId, message }.',
   delete_block: 'Delete a block from a document (requires confirmation). Returns: { message }.',
   delete_document: 'Delete a document (moves to trash, requires HITL confirmation). Returns: { message }.',
   get_doc_settings: 'Get document settings (access, visibility, permissions). Returns: { settings }.',
@@ -1707,16 +1638,16 @@ const EN_DESCRIPTIONS = {
   create_doc_invite: 'Create an invite granting access to a document. Returns: { invite }.',
   list_doc_invites: 'List invites for a document. Returns: { items, total }.',
   revoke_doc_invite: 'Revoke a document invite. Returns: { message }.',
-  // Editor ops
-  editor_insert_text: 'Insert text into the open document. position: "cursor" (default) or "end".',
-  editor_str_replace: 'Find and replace a substring in the open document (first occurrence).',
-  editor_insert_heading: 'Insert a heading (h1-h6) into the open document.',
-  editor_insert_callout: 'Insert a callout block into the document.',
-  editor_insert_table: 'Insert a table into the document.',
-  editor_insert_list: 'Insert a bulleted or numbered list.',
-  editor_insert_mermaid: 'Insert a Mermaid diagram into the document.',
-  editor_clear_and_write: 'Clear the document and write new content (requires HITL confirmation).',
-  editor_append_section: 'Append a section of text to the end of the open document.',
+  // Editor ops — server-side writes; any open tab receives changes over WS
+  editor_insert_text: 'Write text to the end of document docId (server-side; an open tab updates itself over WS). position: "cursor" is treated as "end".',
+  editor_str_replace: 'Find and replace a substring in document docId (first occurrence, against persisted text). Not found — structured TEXT_NOT_FOUND error.',
+  editor_insert_heading: 'Write a heading (level 1-6) to the end of document docId (server-side).',
+  editor_insert_callout: 'Write a callout block to the end of document docId (server-side).',
+  editor_insert_table: 'Write a table to the end of document docId (server-side).',
+  editor_insert_list: 'Write a bulleted or numbered list to the end of document docId (server-side).',
+  editor_insert_mermaid: 'Write a Mermaid diagram to the end of document docId (server-side).',
+  editor_clear_and_write: 'Clear document docId and write new content (server-side; requires HITL confirmation).',
+  editor_append_section: 'Append a section of text to the end of document docId (server-side).',
   // Memory
   remember: 'Save important information to long-term memory for future conversations.',
   recall: 'Retrieve narrative context from long-term memory.',
@@ -1779,7 +1710,7 @@ const EN_DESCRIPTIONS = {
   list_roles: 'Show all roles and their access rights to object types (READ/WRITE/ADMIN). Use for "what roles exist", "role permissions", "what can an editor do" (admin only). Returns: { items:[{id,name}], total }.',
   get_user_permissions: 'Show all permissions of a specific user — which objects and at what level (READ/WRITE/ADMIN), whether they can export and delete (admin only).',
   get_permissions_report: 'Permissions matrix: users, roles, grants on object types (admin only).',
-  set_grant: 'Grant or change access of a role or user to an object type (requires confirmation). level: NONE/READ/WRITE/ADMIN. targetTypeId=0 means all types (admin only).',
+  set_grant: 'Grant or change access of a role or user to an object type (requires confirmation). level: NONE/READ/WRITE/ADMIN. targetTypeId=0 means all types (admin only). NOT for portal settings: portal config — set_portal_config.',
   remove_grant: 'Revoke access of a role or user to an object type (requires confirmation, admin only).',
   list_grants: 'List all workspace grants from the _v2_grants table. Filter by roleId or username. Returns: { items:[{id, role_id, username, target_type_id, level, can_export, can_delete}], total }.',
   // Roles
@@ -1962,7 +1893,7 @@ const EN_DESCRIPTIONS = {
   create_dashboard: 'Create a dashboard with widgets (requires HITL confirmation). Grid is 12 columns wide. Widgets go in widgets[], positions in layouts.lg[]. WIDGET TYPES AND CONFIG: kpi={typeId,title,aggregation:count|sum|avg,fieldReqId?} — a single number; chart={typeId,groupByReqId,aggregation:count|sum,chartType:bar|line|pie|doughnut,title} — grouping chart; table={typeId,limit,title?} — record table; text={content,title?} — markdown; kanban={typeId,groupByReqId,title?}; gallery={typeId,limit,title?}; card={typeId,objectId,title?}. LAYOUT: each widget in layouts.lg: {i,x,y,w,h} where w+x<=12. Recommended sizes: kpi=3x2, chart=6x5, table=6x5, text=12x3. WORKFLOW: first list_objects or get_table_schema to learn typeId and the reqId of columns for grouping. Returns: { id, type:"dashboard", title, message }.',
   add_dashboard_widget: 'Add a single widget to an existing dashboard (requires HITL confirmation). IMPORTANT: type and config are separate parameters, NOT nested in a widget object. Position is automatic — the widget goes below all existing ones. TYPES AND CONFIG: kpi={typeId,aggregation:count|sum|avg,fieldReqId?}; chart={typeId,groupByReqId,aggregation:count|sum,chartType:bar|line|pie|doughnut}; table={typeId,limit?}; text={content}; kanban={typeId,groupByReqId}; gallery={typeId,limit?}; report={reportId}; document={docId}. Size (w,h) optional — defaults: kpi=3x2, chart=6x5, table=6x5, report=6x4, kanban=8x6. Returns: { widgetId, dashboardId, type:"dashboard", message }.',
   remove_dashboard_widget: 'Remove a widget from a dashboard by its ID (requires HITL confirmation). widgetId comes from get_dashboard, widgets[].i.',
-  update_dashboard: 'Fully update a dashboard — title and/or ALL widgets (requires HITL). To add/remove a single widget use add_dashboard_widget / remove_dashboard_widget. For renaming pass only title. Returns: { id, type:"dashboard", message }.',
+  update_dashboard: 'Fully update a dashboard — title and/or ALL widgets (requires HITL). To add/remove a single widget use add_dashboard_widget / remove_dashboard_widget. For renaming pass only title. NOT for the portal: editing a portal module — update_portal_module(slug, config). Returns: { id, type:"dashboard", message }.',
   delete_dashboard: 'Delete a dashboard entirely (requires HITL confirmation). Returns: { message }.',
   // AI formula
   generate_formula: 'AI-generate a FORMULA column expression — natural language description to {expr, vars}. Only for kind=FORMULA. For LOOKUP/ROLLUP use create_computed directly.',
@@ -1989,8 +1920,8 @@ const EN_DESCRIPTIONS = {
   get_agent_tasks: 'Task history of an external agent: statuses, results, errors.',
   // Portal
   get_portal_config: 'Get the current portal config of the workspace: active flag, custom domain, module config.',
-  set_portal_config: 'Create or update the portal config (branding, auth, pages). Without merge — full replacement. With merge: true — deep-merge a partial config into the existing one (no need to pass the whole config). Writes verify references: custom_code repo/file and bindings table:N must exist in this workspace — otherwise REPO_NOT_IN_WORKSPACE / FILE_NOT_IN_REPO / TABLE_NOT_IN_WORKSPACE (defects already present in the previous config do not block the edit). The previous config is pushed to history before writing (GET /portal/api/config/history, rollback via POST /portal/api/config/restore). Requires confirmation.',
-  update_portal_module: 'Update the config of a single portal module (by slug) without overwriting the rest. Reference checks as in set_portal_config: repo/file/bindings must exist in this workspace.',
+  set_portal_config: 'Create or update the portal config (branding, auth, pages). Without merge — full replacement. With merge: true — deep-merge a partial config into the existing one (no need to pass the whole config). Writes verify references: custom_code repo/file and bindings table:N must exist in this workspace — otherwise REPO_NOT_IN_WORKSPACE / FILE_NOT_IN_REPO / TABLE_NOT_IN_WORKSPACE (defects already present in the previous config do not block the edit). The previous config is pushed to history before writing (GET /portal/api/config/history, rollback via POST /portal/api/config/restore). Editing one module — update_portal_module(slug, config). NOT for access rights: grants — set_grant. Requires confirmation.',
+  update_portal_module: 'Update the config of a single portal module (by slug) without overwriting the rest. Deep merge: nested objects (e.g. bindings) merge by key; `null` deletes a key; arrays and scalars are replaced wholesale. Reference checks as in set_portal_config: repo/file/bindings must exist in this workspace. NOT for dashboards: editing a dashboard — update_dashboard(id). Full config replacement — set_portal_config.',
   portal_preview: 'Get the portal preview URL.',
   portal_publish: 'Enable (active=true) or disable (active=false) the portal. Requires confirmation.',
   // Telegram management
@@ -2173,7 +2104,7 @@ const EN_DESCRIPTIONS = {
   // PM
   pm_list_issues: 'List PM issues with optional filters.',
   pm_get_issue: 'Get full details of a PM issue by ID.',
-  pm_create_issue: 'Create a new PM issue. Trigger phrases: "create a task", "task in PM" — prefer this over create_object and documents. For multi-part work create an epic and attach child issues (parent_id) with labels — not one task with a wall of text.',
+  pm_create_issue: 'Create a new PM issue. Trigger phrases: "create a task", "task in PM" — prefer this over create_object and documents. NOT for plain table records: create_object(typeId, fields). For multi-part work create an epic and attach child issues (parent_id) with labels — not one task with a wall of text.',
   pm_update_issue: 'Update an existing PM issue. A checklist field passed here is ignored — checklist items are edited one at a time via pm_toggle_checklist and the issue checklist routes; pm_bulk_update rejects the field with a 400.',
   pm_delete_issue: 'Soft-delete a PM issue.',
   pm_move_issue: 'Move an issue to a different sprint, parent, or reorder within a list.',
