@@ -320,6 +320,8 @@ Stuck or unsure how the platform works? docs_map() and docs_search(query) are ac
 
 Only core tools (CRUD, search, docs corpus, graph, comments, bulk, history) are loaded by default. Use search_tools to activate more — it reports what it activated and names the tools, so it doubles as the group catalog.
 
+Different tools with similar names are NOT interchangeable. Before any call that requires confirmation, verify the exact tool name against its description: set_grant (group "grants") changes access rights, set_portal_config (group "portal") writes the portal config — one is not the other. If the tool you need is not in the active list, call search_tools to activate its group — never substitute a similar active tool.
+
 ---
 
 Phrase triggers — user wording maps to a tool group; activate it and use its tools, do NOT fall back to generic objects/documents:
@@ -425,6 +427,8 @@ plan_schema({ tables: [...] }) creates all tables, columns, refs, and seed recor
 - required — true for mandatory field
 - unique — true for unique constraint (article codes, SKU, email if must be unique)
 - size — length limit: "100" (max chars) or "10,2" (precision,scale for numbers e.g. price with 2 decimals)
+- kind — set to "FORMULA" for a computed column. Only FORMULA is supported in plan_schema.
+- expr — formula for kind=FORMULA. Variables are other column aliases of the SAME table in square brackets: "[Цена] * [Количество]". Variables are resolved to column IDs automatically.
 
 **Smart header grouping — column merging under parent headers:**
 Use dot "." in alias to group columns: "Group.Column" → columns with same prefix merge under a shared header.
@@ -444,6 +448,7 @@ Every table automatically has a virtual _value column — the record's display n
 - Tables are auto-sorted: lookups first, then parents, then children. No need to order manually.
 - refTable must match the exact name of another table in the same plan.
 - After plan_schema completes — ALL tables, columns, refs, and seed records are ALREADY created. Do NOT call create_table, add_column, create_object, or plan_schema after it — everything is done. Just tell the user what was created.
+- LOOKUP/ROLLUP columns are NOT supported in plan_schema — create the tables first, then add them with create_computed.
 
 **Example — Project Management:**
 \`\`\`json
@@ -1365,7 +1370,7 @@ const DESTRUCTIVE_TOOLS = new Set([
 
 // English descriptions for MCP — backend TOOL_DEFS are in Russian for the in-app agent.
 // Add entries here when introducing new tools so MCP clients see English descriptions.
-const EN_DESCRIPTIONS = {
+export const EN_DESCRIPTIONS = {
   // Lookups
   get_lookup: 'Get dropdown values for a lookup table by ID. Returns an array of records with id and display name.',
   get_ref_options: 'Get available options for a reference column by reqId. Use before creating/updating objects to discover valid values for ref fields.',
@@ -1681,7 +1686,7 @@ const EN_DESCRIPTIONS = {
   get_schema_snapshot: 'Get the table structure snapshot saved before a destructive operation (column deletion etc).',
   get_schema_backlinks: 'Show which columns from OTHER tables reference this table (backlinks). Useful when building ROLLUP — shows available links. Returns: { items:[{colId,colName,fromTypeId,fromTypeName}] }.',
   // Plan schema
-  plan_schema: 'Create a COMPLETE data schema in one shot — tables, columns, lookups, links, child tables — in a single action with one user confirmation. USE INSTEAD OF create_table + add_column when creating 2+ tables. IMPORTANT: specify columns ONLY in the source table (the one that REFERENCES), not in the lookup table. Do NOT create a "Name"/"Title" column — it duplicates _value. Use valueColumnName for the display title. Returns: { type:"schema", tables:[{id,name}], created, skipped, errors, message }.',
+  plan_schema: 'Create a COMPLETE data schema in one shot — tables, columns, lookups, links, child tables — in a single action with one user confirmation. USE INSTEAD OF create_table + add_column when creating 2+ tables. IMPORTANT: specify columns ONLY in the source table (the one that REFERENCES), not in the lookup table. Do NOT create a "Name"/"Title" column — it duplicates _value. Use valueColumnName for the display title. Computed FORMULA columns: {alias, kind: "FORMULA", expr: "[Price] * [Qty]"}. LOOKUP/ROLLUP are not supported here — use create_computed. Returns: { type:"schema", tables:[{id,name}], created, skipped, errors, message }.',
   // AI Button
   get_ai_button_config: 'Get AI button configuration (prompt, model, outputReqId, temperature).',
   configure_ai_button: 'Configure an AI button — set the prompt, model, and where to write the result. In the prompt use [ColumnName] to substitute row values, [ID] for the record id, [VAL] for the record name. outputReqId — column ID to auto-write the result (optional). temperature: "low"(0.2)/"medium"(0.7)/"high"(1.2). agentMode: true runs a full AI agent with access to all tools (web_search, tables, documents etc).',
