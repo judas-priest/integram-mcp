@@ -1431,6 +1431,10 @@ export const EN_DESCRIPTIONS = {
   summarize_topic: 'Generate an AI summary of a teamchat topic discussion. Extracts key conclusions, decisions made, and open questions.',
   list_topics: 'Search topics by name across all rooms the user belongs to. Returns matching topics with their IDs, names, and linked room names.',
   delete_topic: 'Permanently delete a teamchat topic and all its messages. Requires room admin rights. This action is IRREVERSIBLE.',
+  // Meetings
+  meetings_status: 'Meeting conveyor status for the workspace: saved config and installed meetings: * automations. Returns: {configured, config, automations:[{id,name,active}]}.',
+  meetings_setup: 'Install or update the meeting conveyor (requires confirmation): creates/updates the meetings: intake and meetings: protocol automations from config. Idempotent on repeated calls (upsert by name). Column aliases must match real column names byte-for-byte; the meetings table must have all 8 meet.cols columns (including record), the messages table all 12 tg.cols (including Транскрипт). Returns: {created, updated, message}.',
+  meetings_teardown: 'Deactivate the meeting conveyor automations (every meetings: * name, requires confirmation). The workspace config is kept. Returns: {deactivated, message}.',
   // Meta-KB
   mk_revoke_entity: 'Revoke all knowledge base entities derived from a specified decision. Use when a decision was found to be incorrect. Returns { revoked: number, message: string }.',
   mk_list_debates: 'List recent expert debates in the workspace. Returns { debates: Array, total: number }. Each debate has id, question, consensus, verdict, created_by, created_at.',
@@ -2714,6 +2718,7 @@ export const GROUP_ALIASES = {
   lookups: 'lookups', lookup: 'lookups', справочник: 'lookups',
   'meta-kb': 'meta-kb', metakb: 'meta-kb', дебат: 'meta-kb', дискусси: 'meta-kb',
   pm: 'pm', проект: 'pm', задач: 'pm', спринт: 'pm', канбан: 'pm', бэклог: 'pm', issue: 'pm', sprint: 'pm', backlog: 'pm', board: 'pm',
+  встреч: 'meetings', совещан: 'meetings', meeting: 'meetings',
   // Средства уровня области: без этих слов группа звалась только точным
   // именем `workspace-tools`. Пришли из бэкендового словаря при сведении.
   инструмент: 'workspace-tools', пакет: 'workspace-tools', организац: 'orgs',
