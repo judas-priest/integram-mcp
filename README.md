@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/integram-mcp)](https://www.npmjs.com/package/integram-mcp)
 
-MCP-сервер для Integram — даёт доступ к 749 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
+MCP-сервер для Integram — даёт доступ к 759 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
 
 Работает с облачным Integram на **ai2o.online** или с локальным сервером.
 
@@ -15,7 +15,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=https://ai2o.online \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.87
+  -- npx -y integram-mcp@0.7.98
 ```
 
 Ставить ничего не нужно: `npx` скачает пакет сам.
@@ -43,7 +43,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=http://localhost:8081 \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.87
+  -- npx -y integram-mcp@0.7.98
 ```
 
 Удалить: `claude mcp remove integram`
@@ -57,7 +57,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.87"],
+      "args": ["-y", "integram-mcp@0.7.98"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -77,7 +77,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.87"],
+      "args": ["-y", "integram-mcp@0.7.98"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -167,8 +167,8 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 | Группа | Что делает | Кол-во |
 |---|---|---|
 | **workspace** | Файлы, коннекторы, участники, бэкапы, дашборды, вью, аудит, нормализатор, автоматизации, вебхуки, формы | 132 |
+| **pm** | Управление проектами: задачи, спринты, доски, бэклог, диаграммы | 72 |
 | **portal** | Портал: конфиг, каталог, корзины, заказы, тикеты, KB, метрики, Telegram-боты | 67 |
-| **pm** | Управление проектами: задачи, спринты, доски, бэклог, диаграммы | 66 |
 | **teamchat** | Сообщения, решения, метрики агентов, W-матрица, топики | 58 |
 | **docs** | Документы, блоки, версии, шаринг, папки, теги, шаблоны, PDF | 53 |
 | **nightcall** | Нормативная спецификация и проверяемая генерация: требования, обязательства, свидетельства, базовые линии | 44 |
@@ -186,8 +186,9 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 | **graph** | Граф данных: запросы, окрестности, кратчайший путь | 13 |
 | **kag** | Граф знаний: поиск, обход, вопрос-ответ, ввоз сущностей и связей | 13 |
 | **comments** | Комментарии и реакции к записям | 7 |
+| **video** | обучающие видео (сценарий→запись→озвучка→монтаж) | 6 |
 | **automations** | Детали автоматизации, лог доставки вебхуков | 5 |
-| **video** | обучающие видео (сценарий→запись→озвучка→монтаж) | 5 |
+| **history** | История изменений объектов, откат | 5 |
 | **workspace-tools** | Инструменты уровня области: регистрация, правка, ввоз наборов | 5 |
 | **advisor** | Советы эксперта, возможности платформы | 4 |
 | **bulk** | Массовые операции: создание, обновление, удаление, AI-batch | 4 |
@@ -196,7 +197,6 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 | **finmodel** | Финмодели: посчитанная сетка по периодам и сценариям, граф зависимостей ячеек, подбор параметров (goal-seek) с записью решения | 3 |
 | **normalizer** | Разбор документов: запуск, состояние, подтверждение сопоставления | 3 |
 | **timeseries** | Временные ряды: запись, запрос, список источников | 3 |
-| **history** | История изменений объектов, откат | 2 |
 | **lookups** | Справочники: варианты для dropdown/ref | 2 |
 <!-- END:tool-groups -->
 
