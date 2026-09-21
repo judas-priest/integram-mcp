@@ -57,7 +57,12 @@ async function apiFetch(path, opts = {}, _retried = false) {
       return apiFetch(path, opts, true);
     }
     const text = await res.text().catch(() => '');
-    throw new Error(`API ${opts.method || 'GET'} ${path} → ${res.status}: ${text}`);
+    const err = new Error(`API ${opts.method || 'GET'} ${path} → ${res.status}: ${text}`);
+    // TD-065: тело отказа доезжает вместе с ошибкой — конвертация в isError
+    // читает code/message/details из err.body, а не из текста «API … → 400: {…}».
+    try { err.body = JSON.parse(text); } catch { /* не JSON — остаётся только текст */ }
+    err.status = res.status;
+    throw err;
   }
   const text = await res.text();
   try {
@@ -65,6 +70,17 @@ async function apiFetch(path, opts = {}, _retried = false) {
   } catch {
     throw new Error(`API ${opts.method || 'GET'} ${path} → invalid JSON response (${text.length} chars)`);
   }
+}
+
+// TD-065: отказ бэкенда → результат тула с isError:true (признак протокола MCP).
+// Чистый текст для модели: message + details, без JSON-обёртки всего ответа.
+// Тела нет (не JSON, сеть) — остаётся текст самой ошибки.
+function toolErrorResult(err) {
+  const be = err?.body?.error;
+  const text = be
+    ? `Error: ${be.message || err.message}${be.details ? '\n\n' + JSON.stringify(be.details, null, 2) : ''}`
+    : `Error: ${err?.message}`;
+  return { content: [{ type: 'text', text }], isError: true };
 }
 
 async function login() {
@@ -1250,6 +1266,7 @@ const CREATE_WORKSPACE_DEF = {
       slug: { type: 'string', description: 'URL slug: lowercase, 3-64 chars, a-z start, only a-z0-9_- (e.g. "my-project")' },
       template: { type: 'string', description: 'DEPRECATED: use templateId instead. Optional template db_name string.' },
       templateId: { type: 'number', description: 'Optional template ID (from list_templates) to create workspace with predefined schema structure' },
+      blocks: { type: 'array', items: { type: 'string' }, description: 'Optional block keys (from template manifest.blocks) to carry over. Omit = carry the whole template; empty array = skeleton only' },
     },
     required: ['name', 'slug'],
   },
@@ -1372,7 +1389,7 @@ const DESTRUCTIVE_TOOLS = new Set([
 // Add entries here when introducing new tools so MCP clients see English descriptions.
 export const EN_DESCRIPTIONS = {
   // Lookups
-  get_lookup: 'Get dropdown values for a lookup table by ID. Returns an array of records with id and display name.',
+  get_lookup: 'Get dropdown values for a lookup table by ID. Use it to learn the allowed values of ref fields. Returns an array of records with id and display name.',
   get_ref_options: 'Get available options for a reference column by reqId. Use before creating/updating objects to discover valid values for ref fields.',
   // Graph
   get_graph_node: 'Get a graph node by object ID. Returns type, name, and edges.',
@@ -1401,9 +1418,9 @@ export const EN_DESCRIPTIONS = {
   list_workspace_templates: 'List available templates for creating new workspaces.',
   create_workspace_from_template: 'Create a new workspace from a template. Provide templateId, name, and slug.',
   // Decisions
-  create_decision: 'Create a new team decision with optional linked chat room. Returns decision ID and metadata.',
-  search_teamchat: 'Search teamchat messages by topic, room, or keyword. Returns matching messages with metadata.',
-  search_similar_decisions: 'Find decisions semantically similar to a query or decision ID. Returns ranked results with similarity scores.',
+  create_decision: 'Create a new team decision. Optionally creates a chat room. Returns: { decision: {id, title, domain, ...}, message: string }.',
+  search_teamchat: 'Search team chat messages. Hybrid full-text + vector search — finds messages by meaning, not only by exact words. Returns: { items: [{id, topic_name, room_name, author, text, score}] }.',
+  search_similar_decisions: 'Find semantically similar decisions with an AI recommendation. Returns: { similar: [{id, title, domain, verdict, team, score}], recommendation }. IMPORTANT: id is a DECISION id — use get_decision(id) to load details, NOT get_object.',
   get_agent_metrics: 'Get performance metrics for AI agents. If agentId is provided, returns metrics for that agent only; otherwise all agents. Returns { data: [{ agentId, totalMessages, messages24h, topicsInvolved, trustScore }] }.',
   analyze_decision_conflicts: 'Analyze a decision for conflicts, contradictions, and overlaps with other decisions. Returns analysis with conflict descriptions.',
   list_decisions: 'List all architectural decisions with optional search and filters.',
@@ -1417,7 +1434,7 @@ export const EN_DESCRIPTIONS = {
   // Meta-KB
   mk_revoke_entity: 'Revoke all knowledge base entities derived from a specified decision. Use when a decision was found to be incorrect. Returns { revoked: number, message: string }.',
   mk_list_debates: 'List recent expert debates in the workspace. Returns { debates: Array, total: number }. Each debate has id, question, consensus, verdict, created_by, created_at.',
-  mk_start_debate: 'Start an expert debate on a question. Internal workspace agents evaluate the question in parallel, then cross-examine, then synthesize a consensus. Returns { consensus, debateId, stats }. Full protocol: mk_get_debate(debateId). Optional fast: true skips the cross-examination phase.',
+  mk_start_debate: 'Start an expert debate on a question. The experts are the internal agents of the workspace; all active ones participate by default — pass agents=[slug] to pick one or more for the question. Returns the consensus of the experts and debateId; the full protocol is in mk_get_debate(debateId).',
   mk_analytics: 'Get knowledge base analytics: entity/relation/class counts, orphan nodes, breakdown by source/type/status.',
   mk_research: 'Research a concept in the knowledge graph: find matching entities, graph neighbors, and knowledge gaps.',
   mk_propose_change: 'Propose a knowledge base change (add/update/delete entity). Creates a change request for human review. Returns { id, status: "pending" }.',
@@ -1431,9 +1448,9 @@ export const EN_DESCRIPTIONS = {
   mk_welcome: 'Get Meta-KB welcome summary: stats, recent debates, recommendations.',
   mk_list_rules: 'List Meta-KB validation rules.',
   // Admin — export/import/QA
-  export_type: 'Export a table definition (schema + data) by typeId.',
-  bki_import: 'Import BKI format (tables + data from previous export). Provide content as JSON string.',
-  list_qa_results: 'List QA test sessions and their results.',
+  export_type: 'Export a table definition (schema + data) by typeId (admin only).',
+  bki_import: 'Import BKI format (tables + data from a previous export). Provide content as a JSON string (admin only).',
+  list_qa_results: 'List QA test sessions and their results (admin only).',
   list_test_sessions: 'List QA test sessions with aggregate stats (total, passed, failed, skipped).',
   create_test_session: 'Create a new QA test session. Optional notes parameter.',
   get_test_session: 'Get a QA test session with all test results.',
@@ -1450,7 +1467,7 @@ export const EN_DESCRIPTIONS = {
   verify_client: 'Verify client record — check data quality, shipping validity, duplicate risk.',
   get_client_lineage: 'Get lineage for a client — source records, merge history, field provenance.',
   mk_create_rule: 'Create a Meta-KB validation rule. Condition and action are JSON objects.',
-  mk_delete_rule: 'Delete a Meta-KB validation rule by ID (requires confirmation).',
+  mk_delete_rule: 'Delete a Meta-KB validation rule by ID.',
   mk_list_iterations: 'List Meta-KB iterations with optional status filter (in_progress, proposed, accepted, rejected, ignored).',
   mk_get_debate: 'Get a full debate by ID: question, opinions, consensus, verdict.',
   // Objects — new tools
@@ -1500,7 +1517,7 @@ export const EN_DESCRIPTIONS = {
   get_comment_reactions: 'Get reactions on an object comment. Returns: { commentId, reactions: [{ emoji, count, authors }] }.',
   // Workspace templates & bots
   save_workspace_template: 'Save a workspace as a template. Requires admin/owner in the source workspace. Provide source_slug, name, slug; optional description, icon, visibility (private|org|public), include_data.',
-  apply_workspace_template: 'Apply a template to an EXISTING workspace (creating a new one from a template is a separate tool). Requires admin/owner. dry_run=true shows the plan without changes. Requires confirmation.',
+  apply_workspace_template: 'Apply a template to an EXISTING workspace (creating a new one from a template is a separate tool). Requires admin/owner. dry_run=true shows the plan without changes. Optional blocks: array of block keys to carry (omit = whole template, [] = skeleton only). Requires confirmation.',
   leave_workspace: 'Leave a workspace yourself. Owners and the last admin cannot leave — the service refuses. Requires confirmation.',
   update_workspace_template: 'Update workspace template metadata: name, description, icon, visibility. Only the template owner can change it.',
   delete_workspace_template: 'Delete a workspace template by ID. Irreversible — requires confirmation.',
@@ -1526,6 +1543,13 @@ export const EN_DESCRIPTIONS = {
   add_portal_order_item: 'Add a product to a portal order (admin): creates a child item record; the price is taken from the product unless given. Returns: { id, name, qty, price, variant }.',
   collect_portal_order_items: 'Portal order assembly (admin), one tool with action: collect_all (default) — mark ALL items collected and move a "Picking" order to "Picked"; check — verify whether all items are collected (no changes); toggle — flip the "collected" flag of ONE item (needs itemId).',
   merge_portal_orders: 'Merge portal orders (admin): donor items move to the master order, donors get "Cancelled" status with a comment, empty master fields are filled from donors, the amount is recalculated. All orders must belong to one customer and not be in a terminal status. Reversible only manually. Requires confirmation.',
+  // Portal client mutations (TD-012b)
+  add_portal_cart_item: 'Add a product to a portal customer cart (admin, acts on behalf of the customer at their request): creates an item or increments the quantity of an existing one. Returns: { items: [{ id, objId, name, qty, price, variant }] }.',
+  update_portal_cart_item: 'Change the quantity of a cart item for a portal customer (admin). Returns: { items }; when the item does not exist — { error: "NOT_FOUND" }.',
+  remove_portal_cart_item: 'Remove an item from a portal customer cart (admin). Returns: { items }; when the item does not exist — { error: "NOT_FOUND" }.',
+  clear_portal_cart: 'Completely clear a portal customer cart (admin): IRREVERSIBLY deletes ALL items of someone else\'s cart. Requires confirmation.',
+  create_portal_ticket: 'Open a support ticket on behalf of a portal customer (admin): a ticket in the support module linked to the customer with an initial status. Returns: { id, subject }.',
+  create_portal_order: 'Place a portal order on behalf of a customer (admin): creates a REAL order with money — an order record with items at server catalog prices. WITHOUT idempotencyKey a repeated call creates a DUPLICATE order — pass the key on retries. Requires confirmation.',
   // Portal
   invoke_server_function: 'Execute a codespace server function (api/<name>.js in the workspace git repo). Arbitrary code in a sandbox — requires confirmation. Optional idempotencyMinutes suppresses retries with identical args within an N-minute window — enable for functions with external side effects.',
   list_portal_config_history: 'List portal config snapshot history (admin): recent saves with dates and authors. Call BEFORE restore_portal_config.',
@@ -1622,7 +1646,7 @@ export const EN_DESCRIPTIONS = {
   delete_object: 'Delete a RECORD (object/row) from a table (requires confirmation). NOT for deleting tables — use delete_table for that. Returns: { message }.',
   semantic_search: 'Semantic search across the whole workspace — finds meaningfully similar objects and documents. Use to find "something about X" without an exact name. Do NOT use for structural queries or when you already know the typeId.',
   // Graph
-  get_related: 'Find related objects via the graph.',
+  get_related: 'Find objects related to a given one through the knowledge graph of the workspace. Shows records connected to the object via ref columns and child tables.',
   graph_query: 'Run an arbitrary read-only SQL query against graph tables (graph_objects, graph_edges). SELECT only. Tables are automatically scoped to the current workspace — no WHERE db = $1 needed.',
   upsert_graph_node: 'Create or update a graph node. If a node with this objId exists, it is updated.',
   delete_graph_node: 'Delete a graph node together with all its edges. Irreversible.',
@@ -1700,11 +1724,11 @@ export const EN_DESCRIPTIONS = {
   list_reports: 'List all reports. Returns: { items:[{id,name}], total }.',
   describe_report: 'Get report structure: columns and settings (func, where, storedFrom/To, havingFrom/To).',
   create_report: 'Create a report. parentTypeId=9001 for a user-permissions report (admin only). Returns: { id, type:"report", message }.',
-  update_report: 'Modify a report: name, icon, WHERE filter. WHERE supports [USER] [USER_ID] [TODAY] [NOW]. A column alias in WHERE is "c" + column id (from add_report_column or describe_report). Returns: { id, type:"report", message }.',
+  update_report: 'Modify a report: name, icon, WHERE filter. WHERE supports [USER] [USER_ID] [TODAY] [NOW]. A column alias in WHERE is "c" + column id (from add_report_column or describe_report). Subqueries are allowed: the workspace table must be referenced only via the {{DB}} placeholder (e.g. FROM {{DB}} _t), and a subquery alias must start with an underscore (AS _sub, not AS sub; _abc123 is fine). Forbidden: ";", SQL comments (-- and /* */), $$ quoting. Example: AND c123.val IN (SELECT id FROM {{DB}} _t WHERE _t.t = 3) where 123 is the real column id. Returns: { id, type:"report", message }.',
   delete_report: 'Delete a report (requires confirmation). Returns: { message }.',
   add_report_column: 'Add a column to a report. Returns the column id — use it for WHERE in update_report: alias = "c" + id. Do NOT add a column named after the record title (_value / valueColumnName) — it is already shown as the first report column automatically. Passing valueColumnName (e.g. the title column) as columnAlias creates a broken column with reqTypeId=0 and the report shows "NaN". For a virtual permissions report reqTypeId: 9011=User, 9012=Role, 9013=Object type, 9014=Access level, 9015=Export, 9016=Delete. Returns: { id, type:"report_column", message }.',
   update_report_column: 'Modify a report column: func (aggregation), displayName, default filter (storedFrom/storedTo), HAVING for aggregates (havingFrom/havingTo), hidden, totalFunc. Returns: { id, type:"report_column", message }.',
-  delete_report_column: 'Remove a column from a report. Returns: { message }.',
+  delete_report_column: 'Remove a column from a report (requires confirmation). Returns: { message }.',
   reorder_report_columns: 'Change report column order. order — array of colIds in the desired order.',
   get_report_history: 'Show report change history (audit: creation, renaming, column changes).',
   export_report: 'Export report data to CSV. Returns a CSV string with header and data. Returns: { csv, filename, rowCount }.',
@@ -1805,7 +1829,7 @@ export const EN_DESCRIPTIONS = {
   delete_connector: 'Delete a connector (requires confirmation). Returns: { message }.',
   run_connector: 'Run a connector (requires confirmation — may send data to an external system). Returns: { id, type:"connector", message }.',
   discover_connector_schema: 'Discover the external system schema via OData $metadata. Connects to the connector server, loads the structure (tables, fields, types) and proposes a mapping to Integram types. Works with 1C OData, SAP OData and other OData sources. Returns: { entities: [{name, synonym, type, fields, autoMapping}], url, total }.',
-  reconcile_cdek: 'Reconcile CDEK order statuses with the API. Checks orders with a UUID in "In delivery" status, updates when CDEK reports delivered/pickup/return. Run manually or by cron.',
+  reconcile_cdek: 'Reconcile CDEK order statuses with the API. Checks orders with a UUID in "In delivery" status, updates when CDEK reports delivered/pickup/return. Run manually or by cron (requires confirmation).',
   fetch_api_docs: 'Fetch API documentation by URL (OpenAPI/Swagger, HTML). Use before generate_connector_config to analyze the API. Returns: { source, content, endpoints }.',
   generate_connector_config: 'Generate connector config from the API structure (LLM). Use fetch_api_docs, then generate_connector_config, then test_connector_draft, then create_connector. Returns: { config, placeholders }.',
   test_connector_draft: 'Test-run a connector draft (requires confirmation — makes a real HTTP request). Returns: { ok, status, data }.',
@@ -1864,7 +1888,7 @@ export const EN_DESCRIPTIONS = {
   // Member management
   invite_member: 'Invite a user to the workspace by email (admin only).',
   remove_member: 'Remove a member from the workspace (admin only, requires confirmation).',
-  update_member_role: 'Change the role of a workspace member (admin only).',
+  update_member_role: 'Change the role of a workspace member (admin only, requires confirmation).',
   // Schema detail
   get_table_schema: 'Get the detailed schema of a table by typeId (ID from list_tables). Parameter: typeId (integer). Returns: { id, type:"table", name, columns:[{id, name, type, refTable?, refTableId?, multi?}] }. Ref columns: refTable is the target table name, refTableId its typeId.',
   // KAG
@@ -1878,7 +1902,7 @@ export const EN_DESCRIPTIONS = {
   kag_browse: 'Browse KAG entities filtered by type and source. Returns the entity list and available types.',
   kag_clusters: 'Cluster entities by type and degree centrality. Shows which entity types are most connected.',
   kag_anomalies: 'Detect anomalies in the knowledge graph: hubs (over-connected nodes) and isolated entities (no relations).',
-  kag_delete: 'Delete KAG data. Can delete everything or only a specific source. Removes relations, entities and classes.',
+  kag_delete: 'Delete KAG data. Can delete everything or only a specific source. Removes relations, entities and classes. Irreversible.',
   kag_update_tags: 'Update entity tags in KAG. Tags are used for access control and filtering.',
   // View sharing
   share_view: 'Create a public link to a table view (optional password and expiry).',
@@ -1889,9 +1913,9 @@ export const EN_DESCRIPTIONS = {
   get_record_share: 'Get the current public access token of a record.',
   revoke_record_share: 'Revoke the public link of a record (requires confirmation).',
   // Aggregate
-  aggregate_objects: 'Aggregate table data — SUM, AVG, COUNT, MIN, MAX over columns. Returns computed values. Does not accept filters (rejected with a 400 error); supported: dateFrom, dateTo, columns[].',
-  group_objects: 'Group records by a column with a count per group.',
-  pivot_objects: 'Pivot table — rows by one column, columns by another, values = an aggregate. valueField — numeric column id for the aggregate; agg — COUNT|SUM|AVG|MIN|MAX, default COUNT, SUM with valueField. SUM/AVG/MIN/MAX without valueField return a 400 error. Ref columns are read in both storage patterns, pivot keys are target names.',
+  aggregate_objects: 'Aggregate table data — SUM, AVG, COUNT, MIN, MAX over columns. Returns computed values. Filters are not supported and are rejected with a 400 error; columns[] is supported.',
+  group_objects: 'Group records by a column with a count per group. Does not accept filters (rejected with a 400 error); per-column filtering uses the filter (DSL) param.',
+  pivot_objects: 'Pivot table — rows by one column, columns by another, values = an aggregate. valueField — numeric column id for the aggregate; agg — COUNT|SUM|AVG|MIN|MAX, default COUNT, SUM with valueField. SUM/AVG/MIN/MAX without valueField return a 400 error. Ref columns are read in both storage patterns, pivot keys are target names. Filters are not supported and are rejected with a 400 error.',
   // Dashboards
   list_dashboards: 'List workspace dashboards with widget counts.',
   get_dashboard: 'Get a dashboard by ID — title, widget list with types and configuration, grid layout.',
@@ -1924,8 +1948,8 @@ export const EN_DESCRIPTIONS = {
   check_agent_health: 'Check external agent availability (health check).',
   get_agent_tasks: 'Task history of an external agent: statuses, results, errors.',
   // Portal
-  get_portal_config: 'Get the current portal config of the workspace: active flag, custom domain, module config.',
-  set_portal_config: 'Create or update the portal config (branding, auth, pages). Without merge — full replacement. With merge: true — deep-merge a partial config into the existing one (no need to pass the whole config). Writes verify references: custom_code repo/file and bindings table:N must exist in this workspace — otherwise REPO_NOT_IN_WORKSPACE / FILE_NOT_IN_REPO / TABLE_NOT_IN_WORKSPACE (defects already present in the previous config do not block the edit). The previous config is pushed to history before writing (GET /portal/api/config/history, rollback via POST /portal/api/config/restore). Editing one module — update_portal_module(slug, config). NOT for access rights: grants — set_grant. Requires confirmation.',
+  get_portal_config: 'Get the current portal config of the workspace: active flag, custom domain, module config. config.auth.requireAuth (boolean) closes the whole portal for anonymous visitors (API answers 401 except /api/config, /api/auth/*, /api/files/*, /api/bots*, webhooks; pages redirect to /auth); config.auth.allowRegistration (boolean, default true) — when false, only EXISTING clients can log in (new client creation is refused with REGISTRATION_CLOSED).',
+  set_portal_config: 'Create or update the portal config (branding, auth, pages). Without merge — full replacement. With merge: true — deep-merge a partial config into the existing one (no need to pass the whole config). Writes verify references: custom_code repo/file and bindings table:N must exist in this workspace — otherwise REPO_NOT_IN_WORKSPACE / FILE_NOT_IN_REPO / TABLE_NOT_IN_WORKSPACE (defects already present in the previous config do not block the edit). The previous config is pushed to history before writing (GET /portal/api/config/history, rollback via POST /portal/api/config/restore). Editing one module — update_portal_module(slug, config). config.auth.requireAuth: true closes the WHOLE portal: anonymous API answers 401 (open only /api/config, /api/auth/*, /api/files/*, /api/bots*, CDEK/UDS webhooks) and pages redirect to /auth — warn the user that guest storefront (guest orders, cart, catalog) becomes unavailable, and requireAuth/allowRegistration must be booleans. config.auth.allowRegistration: false forbids creating a new client at login (existing clients only). NOT for access rights: grants — set_grant. Requires confirmation.',
   update_portal_module: 'Update the config of a single portal module (by slug) without overwriting the rest. Deep merge: nested objects (e.g. bindings) merge by key; `null` deletes a key; arrays and scalars are replaced wholesale. Reference checks as in set_portal_config: repo/file/bindings must exist in this workspace. NOT for dashboards: editing a dashboard — update_dashboard(id). Full config replacement — set_portal_config.',
   portal_preview: 'Get the portal preview URL.',
   portal_publish: 'Enable (active=true) or disable (active=false) the portal. Requires confirmation.',
@@ -1990,7 +2014,7 @@ export const EN_DESCRIPTIONS = {
   get_diff_range: 'Diff between two branches or commits. Returns: { diff }.',
   remove_github_sync: 'Remove the GitHub binding of a repository. Irreversible.',
   get_evidence_card: 'Get an evidence card for a pull request — an AI-generated card with change analysis.',
-  commit_portal_component: 'Write a generated Vue SFC component into a codespace repository for use in a portal custom_code module. The repository is created automatically if it does not exist.',
+  commit_portal_component: 'Write a generated Vue SFC component into a codespace repository for use in a portal custom_code module. The repository is created automatically if it does not exist. Requires confirmation.',
   kit_list_components: 'List @kit library building blocks for portals: value reading/recovery helpers, empty-state handling, components. Returns name, kind and a one-line summary. Take the version from the kit field of the custom_code module config; without a version the latest published one is used. Returns: { version, builtAt, items:[{name,kind,summary,module}], total, catalogTotal }. Errors distinguish "library not published", "version missing", "version exists but has no catalog" and "catalog unreadable" — an empty list only means an empty filter.',
   kit_get_component: 'Details of a single @kit building block: module, kind, description, props, slots, and uiKeys for components. Unknown names return an error with similar names. uiKeys — node keys that accept custom classes via the ui prop: <DataTable :ui="{ row: \'my-row\' }" />. Classes are appended to the block own classes, not replacing them. A key not present in uiKeys does not exist: the block will not accept it and warns in the console — never invent node names. There is no uiKeys field at all when the block has no own nodes (headless) or the version predates the release where the ui prop appeared. Returns: { version, name, kind, summary, module, props?, slots?, uiKeys? }.',
   kit_get_tokens: 'Dictionary of @kit library styling tokens: CSS variable names that define color, spacing, radius, font and motion of the building blocks, plus stable class names of each block. CALL BEFORE writing styles for @kit blocks: a name absent here does not exist — an invented name resolves to nothing and the component comes out structurally correct with zero styling. Each token carries a usage field — a ready-made string like var(--kit-color-text, var(--color-text, #1f2328)); write it in full, including the fallback value. Returns: { version, builtAt, items:[{name,kind,purpose,usage,fallback,shell}], total, catalogTotal, kinds, shellTokens, byComponent:[{name,layer,tokens,classes}] }. Errors: KIT_TOKENS_MISSING — the version has no dictionary (introduced after 0.4.0), KIT_NO_STYLING — the block has no markup.',
@@ -2010,9 +2034,9 @@ export const EN_DESCRIPTIONS = {
   record_timeseries: 'Record one or more timeseries points.',
   query_timeseries: 'Query a timeseries with aggregation.',
   list_timeseries_sources: 'List timeseries sources in the workspace.',
-  ask_advisor: 'Ask the platform expert — advice on schema design, best practices, troubleshooting, feature explanations. Returns: { advice }.',
+  ask_advisor: 'Ask the platform expert — advice on schema design, best practices, troubleshooting, feature explanations. Gives a detailed advice grounded in the current workspace schema. Returns: { advice }.',
   web_search: 'Search the internet. Returns a list of results with title, URL and snippet. Use for price lookups, product info, current data from open sources. Returns: { query, results:[{title, url, snippet}], total }.',
-  list_platform_capabilities: 'Full list of platform capabilities by category: data, columns, analytics, automations, documents, integrations, security, portal, AI, graph. Returns: { items:[{category, features}] }.',
+  list_platform_capabilities: 'Full list of platform capabilities by category: data, columns, analytics, automations, documents, integrations, security, portal, AI, graph. Use when the user asks "what can the platform do?" or "what features are there?". Returns: { items:[{category, features}] }.',
   docs_map: 'Map of the platform documentation: which documents exist, what each covers and when it last changed. Start here for questions about how the platform works. Returns: { total, areas, docs:[{path, area, module, title, summary, updatedAt}] }.',
   docs_read: 'Read a documentation page in full or a single section. Take the path from docs_map or docs_search. Long text is read in pages: when hasMore=true pass nextOffset as offset. Returns: { path, title, section, headings, text, totalChars, hasMore, lastCommit }.',
   docs_search: 'Find a place in the platform documentation: hybrid search (meaning + exact names) over fragments with document and section references. An empty result means "not in the found documents", NOT "absent from the documentation". Returns: { results:[{path, section, text, citation, score}], total }.',
@@ -2029,13 +2053,13 @@ export const EN_DESCRIPTIONS = {
   retry_webhook_delivery: 'Retry a webhook delivery (for failed attempts). Returns: { success, deliveryId }.',
   delete_notification: 'Delete a user notification by ID. Returns: { message }.',
   // Workspace invitations
-  list_workspace_invitations: 'List active workspace invitations (email, role, status). Returns: { items, total }.',
-  cancel_workspace_invitation: 'Cancel a workspace invitation by ID. Returns: { message }.',
+  list_workspace_invitations: 'List active workspace invitations (admin only; email, role, status). Returns: { items, total }.',
+  cancel_workspace_invitation: 'Cancel a workspace invitation by ID (admin only, requires confirmation). Returns: { message }.',
   // Object backlinks
   get_object_backlinks: 'Find all records referencing this object (mentions, ref fields). Returns: { items:[{id, typeId, typeName, fieldName}], total }.',
   // Report joins
-  create_report_join: 'Add a JOIN to a report to combine it with another table. Returns: { joinId, ... }.',
-  delete_report_join: 'Remove a JOIN from a report by ID. Returns: { deleted }.',
+  create_report_join: 'Add a JOIN to a report to combine it with another table. For child tables the JOIN to the parent table is auto-detected (child→parent via a.up). Without leftField/rightColId no ON condition is generated — the default pattern is used. The alias is needed to bind columns via joinAlias in add_report_column. Returns: { joinId, ... }.',
+  delete_report_join: 'Remove a JOIN from a report by ID (requires confirmation). Returns: { deleted }.',
   // Teamchat
   send_teamchat_message: 'Send a message to a teamchat topic. Supports code_cell cards for executable code.',
   get_decision: 'Get a decision by ID together with its links and discussions. Returns: { decision: {id, title, domain, verdict, description, chatRoomId, ...}, links: {rel_type: [{id, decisionId, title, direction}]}, discussions: {roomId, roomName, recentTopics} }.',
@@ -2067,9 +2091,9 @@ export const EN_DESCRIPTIONS = {
   mark_topic_read: 'Mark all messages in a topic as read.',
   export_topic_to_document: 'Export a chat topic to a document. Returns: { data: {documentId, url} }.',
   // Activity Intelligence
-  get_team_activity: 'Get team activity stats: messages, resolved topics, tasks (completed/overdue), decisions, engagement per user for a period. Includes blockers and hot topics.',
+  get_team_activity: 'Team activity stats: messages, closed topics, tasks (including overdue), decisions, debates, reactions per member. Hot topics, blockers, recent decisions.',
   get_user_activity: 'Get activity for a specific user: messages, tasks (open/completed/overdue), decisions, blockers assigned to them.',
-  generate_team_digest: 'Generate an AI-powered team digest: outcomes (completed tasks, accepted decisions), blockers (overdue, stale), participation balance, key discussions.',
+  generate_team_digest: 'AI team digest: who completed what, blockers, overdue items, accepted decisions, participation balance.',
   // Orgs
   list_orgs: 'List organizations of the current user.',
   get_org: 'Get organization info by slug.',
@@ -2223,6 +2247,12 @@ export const EN_DESCRIPTIONS = {
   fin_grid: 'Computed financial-model grid: period columns, rows with per-period values, totals and the sheet structure. scenario picks a scenario (defaults to the model first one), sheetId narrows to one sheet. Rows with an id like "g123" are group subtotals and have no record in the database.',
   fin_graph: 'Dependency graph of a financial model: the order cells are computed in and which cell depends on which. A circular reference is returned in the cycle field with an empty order — in that case the grid does not compute at all.',
   fin_goal_seek: 'Goal seek: which levers bring a target cell to the wanted value. target.rowId is a row id (or "g123" for a group subtotal), levers are input rows that may change, with optional min/max bounds. Without apply:true it only computes; with apply:true it writes the solution, and only when the target was reached. Failure is named in reason: unknown_target, no_sensitivity, flat, bounds, no_convergence.',
+  // Synced lookups (external lookup tables pulled from another workspace)
+  synced_lookup_create: 'Attach an external lookup: the local table becomes a synced copy of a table from another workspace. Requires access to the source workspace.',
+  synced_lookup_delete: 'Detach an external lookup: removes the sync config (the target table keeps its data). Requires confirmation (TIER_HIGH).',
+  synced_lookup_list: 'List external lookups of the current workspace with their schedules and last sync status.',
+  synced_lookup_reschedule: 'Change the sync schedule of an external lookup.',
+  synced_lookup_sync: 'Run the sync of an external lookup immediately.',
 
 };
 
@@ -2316,16 +2346,22 @@ async function dispatchTool(request) {
         }
         // Re-call the tool with the elicited answer injected into args
         const originalArgs = args || {};
-        const resumeData = await apiFetch(`/api/v2/${workspace}/ai/tool`, {
-          method: 'POST',
-          body: JSON.stringify({
-            name,
-            args: { ...originalArgs, elicitedAnswer: elicitResult.content },
-            threadId: data?.data?.threadId,
-            schemaCtx: null,
-          }),
-          headers: { 'Content-Type': 'application/json' },
-        });
+        let resumeData;
+        try {
+          resumeData = await apiFetch(`/api/v2/${workspace}/ai/tool`, {
+            method: 'POST',
+            body: JSON.stringify({
+              name,
+              args: { ...originalArgs, elicitedAnswer: elicitResult.content },
+              threadId: data?.data?.threadId,
+              schemaCtx: null,
+            }),
+            headers: { 'Content-Type': 'application/json' },
+          });
+        } catch (resumeErr) {
+          // TD-065: отказ повторного вызова — ошибка тула, а не «требуется ввод»
+          return toolErrorResult(resumeErr);
+        }
         return {
           content: [{ type: 'text', text: typeof resumeData.data === 'string' ? resumeData.data : JSON.stringify(resumeData.data) }],
         };
@@ -2352,7 +2388,7 @@ async function dispatchTool(request) {
       content: [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result, null, 2) }],
     };
   } catch (err) {
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    return toolErrorResult(err);
   }
 }
 
@@ -2386,10 +2422,16 @@ async function handleConfirmAction(approved, confirmId) {
     } else {
       // Backend HITL — proxy to /mcp-resume
       await ensureAuth();
-      const data = await apiFetch(`/api/v2/${workspace}/ai/mcp-resume`, {
-        method: 'POST',
-        body: JSON.stringify({ threadId: pending.threadId, approved }),
-      });
+      let data;
+      try {
+        data = await apiFetch(`/api/v2/${workspace}/ai/mcp-resume`, {
+          method: 'POST',
+          body: JSON.stringify({ threadId: pending.threadId, approved }),
+        });
+      } catch (resumeErr) {
+        // TD-065: раньше отказ /mcp-resume читался как текст успеха
+        return toolErrorResult(resumeErr);
+      }
       msg = data.data?.message || (approved ? 'Action confirmed and executed.' : 'Action rejected.');
     }
 
@@ -2402,7 +2444,7 @@ async function handleConfirmAction(approved, confirmId) {
 
 // ─── create_workspace handler ─────────────────────────────────────────────────
 
-async function handleCreateWorkspace({ name, slug, template, templateId }) {
+async function handleCreateWorkspace({ name, slug, template, templateId, blocks }) {
   if (!name || !slug) {
     return { content: [{ type: 'text', text: 'Error: name and slug are required' }], isError: true };
   }
@@ -2414,6 +2456,10 @@ async function handleCreateWorkspace({ name, slug, template, templateId }) {
     const body = { name, slug };
     if (templateId) body.templateId = templateId;
     else if (template) body.template = template;
+    // blocks едут как есть: отсутствие поля = «весь шаблон», [] = «только
+    // основа» — различение держит REST-схема (blockPickSchema), здесь его не
+    // стирать: `if (blocks)` не отличает [] от отсутствия, что и требуется.
+    if (Array.isArray(blocks)) body.blocks = blocks;
     const data = await apiFetch('/api/v2/workspaces', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -2875,9 +2921,17 @@ export function findSimilarTools(name, catalog, limit = 3) {
  * с ПРЯМЫМ запретом подмены; неактивный — с подсказкой активировать группу.
  */
 export function buildNotActiveText(name, catalog, activeNames) {
+  // PM-103: имени нет в каталоге — это не «не активен», а «такого тула нет».
+  // Общий текст «is not active» модель читает как «имя неверное, попробую соседнее».
+  const known = catalog.some((t) => t.name === name);
+  if (!known) {
+    return `Error: Unknown tool "${name}" — no such tool in the integram catalog. ` +
+      `Do NOT call a different tool instead. Check the name, or use search_tools to discover the right one.`;
+  }
   const similar = findSimilarTools(name, catalog);
   if (!similar.length) {
-    return `Error: Tool "${name}" is not active. Use search_tools to discover and activate it first.`;
+    return `Error: Tool "${name}" is not active. Use search_tools to discover and activate it first. ` +
+      `Do NOT call a different tool instead — substitution answers the wrong question.`;
   }
   const activeSet = new Set(activeNames);
   const activeHits = similar.filter((t) => activeSet.has(t.name));
