@@ -1028,6 +1028,7 @@ Git repository hosting per workspace. Activate via search_tools("codespace").
 **Commits & files:**
 - list_commits(slug, ref?, limit?, offset?) — list commits on a branch
 - get_commit_diff(slug, sha) — unified diff for a single commit (works for initial commit)
+- search_code(slug, query, ref?, path?, isRegex?, caseSensitive?, limit?) — git grep across repo contents. Search FIRST before reading whole files. Returns { hits: [{ path, line, text }], total, truncated }
 - get_file_tree(slug, ref?, path?) — list files/dirs in a repo. Returns { items: [{ name, type, size, path }], ref, path }
 - read_blob(slug, path, ref?, offset?, limit?) — прочитать файл. Возвращает baseCommit — состояние ветки на момент чтения. Если baseCommit пришёл null, файл прочитан не целиком: перечитайте без offset/limit, прежде чем писать.
 - patch_file(slug, branch, filePath, oldStr, newStr, message?, baseCommit?) — ПРЕДПОЧТИТЕЛЬНЫЙ способ править существующий файл. Заменяет уникальный кусок текста, файл целиком слать не нужно. oldStr должен встречаться ровно один раз.
@@ -1408,6 +1409,7 @@ export const EN_DESCRIPTIONS = {
   // Codespace
   get_file_tree: 'List files and directories in a codespace repository at a given path and ref (branch/commit). Returns: { items: [{ name, type, size, path }], ref, path }.',
   read_blob: 'Read file content from a codespace repository. Returns text for text files (up to 200K chars, supports offset/limit for pagination), metadata only for binary files. Returns: { content, path, ref, binary, size, truncated, baseCommit }. Pass baseCommit to patch_file/commit_file so your write merges with concurrent changes instead of overwriting them. baseCommit is null when the read was truncated or offset — re-read in full before writing.',
+  search_code: 'Search repository file contents with git grep. Use this FIRST to locate where a string or function lives — do not download the whole tree. Fixed-string substring by default (case-insensitive); isRegex: true switches to extended regex. Returns: { hits: [{ path, line, text }], total, truncated }. If truncated is true, narrow with path.',
   patch_file: 'Replace one unique snippet of text in a repository file. Preferred over commit_file for editing existing files: no need to send the whole file, works at any file size, rarely conflicts. oldStr must occur exactly once — lengthen the anchor if it does not. Matching is exact, including indentation.',
   // Notifications
   get_notification_count: 'Get the number of unread notifications for the current user. Returns: { count }.',
