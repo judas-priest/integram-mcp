@@ -1780,7 +1780,7 @@ export const EN_DESCRIPTIONS = {
   delete_webhook: 'Delete a webhook (requires confirmation). Returns: { message }.',
   // Forms
   list_forms: 'List data-entry forms. Returns: { items:[{token,config}], total }.',
-  create_form: 'Create a form that collects data into a table. Returns: { type:"form", token, message }.',
+  create_form: 'Create a form that collects data into a table. Returns: { type:"form", token, message }. Public URL of the form: {app origin}/forms/<token> (the token is in the response).',
   delete_form: 'Delete a form (requires confirmation). Returns: { message }.',
   // Files
   list_files: 'List uploaded files. Each file includes: processingStatus (pending/extracting/classifying/done/skipped/error), ocrEngine (mistral/pdf-parse/null), classifiedName (recognized document type).',
