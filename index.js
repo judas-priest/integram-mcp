@@ -2143,6 +2143,10 @@ export const EN_DESCRIPTIONS = {
   delete_workspace_tool: 'Delete a custom workspace tool.',
   import_tool_pack: 'Bulk-import a tool pack (set of custom tools) into the workspace.',
   // PM
+  pm_briefing: 'Morning PM briefing: today\'s rituals, my in-progress issues, WIP limit overflows, blocked issues with reasons, overdue items. mine=false for a workspace-wide view without the assignee filter.',
+  pm_list_rituals: 'List dev rituals (metronome): cron schedule, owner, norm, held/missed stats for the last week.',
+  pm_save_ritual: 'Create or update a dev ritual. cron: 5 fields (minute hour day month weekday), UTC (e.g. "30 6 * * 1-5" = Mon-Fri 06:30 UTC). Pass id to update; omitted fields are left unchanged.',
+  pm_hold_ritual: 'Mark a ritual as held, missed, or skipped — writes to the metronome log for the current minute. status: held (default) | missed | skipped.',
   pm_list_issues: 'List PM issues with optional filters.',
   pm_get_issue: 'Get full details of a PM issue by ID.',
   pm_create_issue: 'Create a new PM issue. Trigger phrases: "create a task", "task in PM" — prefer this over create_object and documents. NOT for plain table records: create_object(typeId, fields). For multi-part work create an epic and attach child issues (parent_id) with labels — not one task with a wall of text.',
