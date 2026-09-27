@@ -2452,7 +2452,11 @@ async function handleConfirmAction(approved, confirmId) {
           body: JSON.stringify({ threadId: pending.threadId, approved }),
         });
       } catch (resumeErr) {
-        // TD-065: раньше отказ /mcp-resume читался как текст успеха
+        // TD-065: раньше отказ /mcp-resume читался как текст успеха.
+        // Issue #256: отказ сети/бэкенда возвращает ожидание в очередь —
+        // confirmId остаётся живым, повторный confirm даёт внятный ответ
+        // (включая 404, когда бэкенд уже списал pending), а не потерю действия.
+        enqueuePending(pendingHitlQueue, pending, { ttlMs: HITL_QUEUE_TTL_MS, maxSize: HITL_QUEUE_MAX_SIZE });
         return toolErrorResult(resumeErr);
       }
       msg = data.data?.message || (approved ? 'Action confirmed and executed.' : 'Action rejected.');
