@@ -2443,10 +2443,11 @@ async function handleConfirmAction(approved, confirmId) {
         msg = 'Action rejected.';
       }
     } else {
-      // Backend HITL — proxy to /mcp-resume
-      await ensureAuth();
+      // Backend HITL — proxy to /mcp-resume. ensureAuth под общим try:
+      // отказ авторизации тоже возвращает ожидание в очередь (TD-213).
       let data;
       try {
+        await ensureAuth();
         data = await apiFetch(`/api/v2/${workspace}/ai/mcp-resume`, {
           method: 'POST',
           body: JSON.stringify({ threadId: pending.threadId, approved }),
