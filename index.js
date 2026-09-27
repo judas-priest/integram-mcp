@@ -2509,7 +2509,7 @@ async function handleCreateWorkspace({ name, slug, template, templateId, blocks 
 
 let _pendingDeleteSlug = null;
 
-async function handleDeleteWorkspace(slug) {
+export async function handleDeleteWorkspace(slug) {
   if (!slug) {
     return { content: [{ type: 'text', text: 'Error: slug is required' }], isError: true };
   }
@@ -2540,14 +2540,23 @@ async function handleDeleteWorkspace(slug) {
       },
       onReject: () => { _pendingDeleteSlug = null; },
     }, { now, ttlMs: HITL_QUEUE_TTL_MS, maxSize: HITL_QUEUE_MAX_SIZE });
+    // PM-241/PM-646: тот же конструктор текста, что у бэкенд-HITL-пути —
+    // ожидание в очереди несёт confirmId, и текст обязан его печатать,
+    // иначе подтверждающему нечем назвать ожидание.
     return {
-      content: [{ type: 'text', text: `⚠️ REQUIRES CONFIRMATION: Permanently delete workspace "${slug}" and ALL its data. This action is irreversible.\n\nAsk the user to confirm or reject, then call confirm_action(approved=true/false).` }],
+      content: [{ type: 'text', text: buildHitlConfirmationText({
+        tool: 'delete_workspace',
+        message: `Permanently delete workspace "${slug}" and ALL its data. This action is irreversible.`,
+        queued: pendingHitlQueue.length,
+        confirmId: entry.id,
+      }) }],
     };
   }
 
-  // If already pending for same slug, remind
+  // If already pending for same slug, remind — тоже с confirmId (PM-646)
+  const pendingEntry = pendingHitlQueue.find((e) => e.threadId === `delete-ws-${slug}`);
   return {
-    content: [{ type: 'text', text: `Deletion of workspace "${slug}" is already pending confirmation. Call confirm_action(approved=true/false).` }],
+    content: [{ type: 'text', text: `Deletion of workspace "${slug}" is already pending confirmation.${pendingEntry ? ` confirm id: ${pendingEntry.id}.` : ''} Call confirm_action(approved=true/false${pendingEntry ? `, confirmId="${pendingEntry.id}"` : ''}).` }],
   };
 }
 
