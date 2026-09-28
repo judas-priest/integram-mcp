@@ -760,7 +760,7 @@ Role-based access control. Activate via search_tools("permissions").
 - list_members — all workspace users with roles. Returns { items:[{userId,email,name,username,role,roleId,roleName,lastSeenAt}], total }; lastSeenAt is the member's last visit to this workspace (null if never). It is throttled to 5-minute granularity, so treat it as "last seen within ~5 min", not an exact timestamp
 - list_roles — all roles and their access levels per table
 - get_user_permissions(username or userId) — what a specific user can access
-- set_grant(roleId or username, targetTypeId, level) — level: NONE/READ/WRITE/ADMIN. targetTypeId=0 = all tables.
+- set_grant(roleId or username, targetTypeId, level) — level: NONE/READ/WRITE/ADMIN; NONE = deny row that overrides the role grant; revoking a grant is remove_grant. targetTypeId=0 = all tables.
   Optional: canExport (allow CSV export), canDelete (allow record deletion)
 - remove_grant — revoke access
 
@@ -1750,7 +1750,7 @@ export const EN_DESCRIPTIONS = {
   list_roles: 'Show all roles and their access rights to object types (READ/WRITE/ADMIN). Use for "what roles exist", "role permissions", "what can an editor do" (admin only). Returns: { items:[{id,name}], total }.',
   get_user_permissions: 'Show all permissions of a specific user — which objects and at what level (READ/WRITE/ADMIN), whether they can export and delete (admin only).',
   get_permissions_report: 'Permissions matrix: users, roles, grants on object types (admin only).',
-  set_grant: 'Grant or change access of a role or user to an object type (requires confirmation). level: NONE/READ/WRITE/ADMIN. targetTypeId=0 means all types (admin only). NOT for portal settings: portal config — set_portal_config.',
+  set_grant: 'Grant or change access of a role or user to an object type (requires confirmation). level: NONE/READ/WRITE/ADMIN; NONE writes a DENY row (overrides the role grant for that targetTypeId) — to revoke a grant entirely use remove_grant. targetTypeId=0 means all types (admin only). NOT for portal settings: portal config — set_portal_config.',
   remove_grant: 'Revoke access of a role or user to an object type (requires confirmation, admin only).',
   list_grants: 'List all workspace grants from the _v2_grants table. Filter by roleId or username. Returns: { items:[{id, role_id, username, target_type_id, level, can_export, can_delete}], total }.',
   // Roles
