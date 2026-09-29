@@ -2353,6 +2353,7 @@ async function dispatchTool(request) {
         threadId: result.threadId,
         action: name,
         description: result.message || `Pending: ${name}`,
+        workspace,
         createdAt: now,
       }, { now, ttlMs: HITL_QUEUE_TTL_MS, maxSize: HITL_QUEUE_MAX_SIZE });
       return {
@@ -2451,16 +2452,25 @@ async function handleConfirmAction(approved, confirmId) {
       let data;
       try {
         await ensureAuth();
-        data = await apiFetch(`/api/v2/${workspace}/ai/mcp-resume`, {
+        // Резюм по воркспейсу, где ожидание создано: после switch_workspace
+        // сессионный воркспейс промахнулся бы по scope (takeAndDeletePendingHitl
+        // фильтрует по workspace_db) — 404 при живом, исполнимом действии.
+        data = await apiFetch(`/api/v2/${pending.workspace || workspace}/ai/mcp-resume`, {
           method: 'POST',
           body: JSON.stringify({ threadId: pending.threadId, approved }),
         });
       } catch (resumeErr) {
-        // TD-065: раньше отказ /mcp-resume читался как текст успеха.
-        // Issue #256: отказ сети/бэкенда возвращает ожидание в очередь —
-        // confirmId остаётся живым, повторный confirm даёт внятный ответ
-        // (включая 404, когда бэкенд уже списал pending), а не потерю действия.
-        enqueuePending(pendingHitlQueue, pending, { ttlMs: HITL_QUEUE_TTL_MS, maxSize: HITL_QUEUE_MAX_SIZE });
+        // Issue #256: отказ сети/бэкенда возвращает ожидание в очередь.
+        // КРОМЕ 404 NOT_FOUND: бэкенд списывает pending ДО исполнения
+        // (ai/router.js:1336, атомарный DELETE … RETURNING) — это ответ
+        // idempotency-ключа «уже обработано». Re-enqueue здесь давал залипание:
+        // каждый следующий confirm по этому id снова 404 и снова в очередь,
+        // до TTL. DB_NOT_FOUND (воркспейс не найден) — транзиентный, остаётся.
+        const consumed = resumeErr?.status === 404
+          && resumeErr?.body?.error?.code === 'NOT_FOUND';
+        if (!consumed) {
+          enqueuePending(pendingHitlQueue, pending, { ttlMs: HITL_QUEUE_TTL_MS, maxSize: HITL_QUEUE_MAX_SIZE });
+        }
         return toolErrorResult(resumeErr);
       }
       msg = data.data?.message || (approved ? 'Action confirmed and executed.' : 'Action rejected.');
