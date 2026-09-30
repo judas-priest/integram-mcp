@@ -1335,7 +1335,7 @@ const READ_ONLY_TOOLS = new Set([
   'list_documents', 'get_object_history', 'list_comments', 'semantic_search',
   'get_table_schema', 'list_reports', 'get_report', 'describe_report',
   'list_members', 'list_roles', 'get_user_permissions', 'list_grants',
-  'search_documents', 'get_document', 'get_document_blocks',
+  'search_documents', 'get_document', 'get_document_blocks', 'workflow_get_state',
   'list_doc_versions', 'list_doc_sharing', 'list_doc_folders', 'list_doc_tags', 'preview_document',
   'get_block_history', 'get_doc_version',
   'recall', 'find_procedure', 'list_contradictions',
@@ -1439,7 +1439,7 @@ export const EN_DESCRIPTIONS = {
   meetings_setup: 'Install or update the meeting conveyor (requires confirmation): creates/updates the meetings: intake and meetings: protocol automations from config. Idempotent on repeated calls (upsert by name). Column aliases must match real column names byte-for-byte; the meetings table must have all 8 meet.cols columns (including record), the messages table all 12 tg.cols (including Транскрипт). Returns: {created, updated, message}.',
   meetings_teardown: 'Deactivate the meeting conveyor automations (every meetings: * name, requires confirmation). The workspace config is kept. Returns: {deactivated, message}.',
   // Workflows (event-sourced processes, ADR-036)
-  workflow_get_state: 'State and biography of an object in an event-sourced process: current event, terminal flag, available transitions (blocked + reason from gates), and the event history. Pure read of the journal and spec — adjacency/gate/role/terminal are enforced by the server on write. Returns: { process, objectId, current, terminal, started, available: [{ key, title, blocked, reason? }], history: [{ id, key, actor, seq, occurred_at, fields, cause_id }] }.',
+  workflow_get_state: 'State and biography of an object in an event-sourced process: current event, terminal flag, available transitions (blocked + reason from gates), and the event history. Pure read of the journal and spec — adjacency/gate/role/terminal are enforced by the server on write. Returns: { process, objectId, current, terminal, started, available: [{ key, title, blocked, reason? }], history: [{ id, key, actor, seq, occurred_at, fields, cause_id, object_table_id, subject_kind }] }.',
   workflow_record_event: 'Append an event to a process journal (append-only, ADR-036; requires confirmation). The server validates adjacency, gates, roles and terminal state: non-adjacent or terminal write → 422 SPEC_INVALID, lost race → 409 CONCURRENCY (refresh expectedSeq). Optionally pass docId of the document artifact for provenance. Call workflow_get_state first. Returns the inserted journal row.',
   // Meta-KB
   mk_revoke_entity: 'Revoke all knowledge base entities derived from a specified decision. Use when a decision was found to be incorrect. Returns { revoked: number, message: string }.',
@@ -2204,6 +2204,7 @@ export const EN_DESCRIPTIONS = {
   pm_get_lead_time: 'Get lead time metrics — time from creation to close, with avg/median.',
   pm_get_workload: 'Get workload distribution across team members — active issues, in-progress, overdue, points.',
   pm_detect_blockers: 'Find blocked/stale/overdue issues. Returns blockers with reasons.',
+  pm_task_status: 'Task status summary for a person: open, overdue and due-today counts with a list (number, status, due, title). Resolve the person by fio (exact member name), pm_key (e.g. PM-123) or assignee id.',
   pm_summarize_sprint: 'AI summary of a sprint — done, remaining, overdue, points. Useful for standup/review.',
   pm_triage_issue: 'Auto-classify an issue: suggest type, priority, labels based on title/description.',
   pm_decompose_issue: 'Break down an issue into sub-tasks. Extracts checklists/headers from the description, or suggests a generic breakdown.',
