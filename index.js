@@ -211,11 +211,21 @@ async function checkForUpdate() {
     if (cmpVersion(latest, PKG.version) <= 0) return;
 
     log(`Доступна версия ${latest} (запущена ${PKG.version}): https://www.npmjs.com/package/${PKG.name}`);
-    updateNotice = [
-      `⚠️ integram-mcp: запущена версия ${PKG.version}, в npm выложена ${latest}.`,
-      `Скажи пользователю обновиться: заменить версию в конфиге MCP на \`${PKG.name}@${latest}\` и перезапустить клиент.`,
-      `Список изменений: https://www.npmjs.com/package/${PKG.name}`,
-    ].join(' ');
+    // Запуск из репозитория (конфиг указывает на index.js, не на node_modules):
+    // пакет в конфиге никто не «пинует» — код в репо мог уже уехать вперёд при
+    // локальном бампе, просто процесс ещё живёт со старым. Чинится перезапуском
+    // сервера, а не правкой конфига.
+    const fromRepo = !__dirname.split(path.sep).includes('node_modules');
+    updateNotice = fromRepo
+      ? [
+          `⚠️ integram-mcp: процесс запущен из репозитория и отстал (запущена ${PKG.version}, в npm ${latest}).`,
+          `Скажи пользователю перезапустить MCP-сервер (в Claude Code: /mcp → Reconnect) — код в репозитории уже свежий, конфиг править не нужно.`,
+        ].join(' ')
+      : [
+          `⚠️ integram-mcp: запущена версия ${PKG.version}, в npm выложена ${latest}.`,
+          `Скажи пользователю обновиться: заменить версию в конфиге MCP на \`${PKG.name}@${latest}\` и перезапустить клиент.`,
+          `Список изменений: https://www.npmjs.com/package/${PKG.name}`,
+        ].join(' ');
   } catch { /* нет сети, реестр недоступен, прокси — работе сервера не мешает */ }
 }
 
@@ -3142,6 +3152,18 @@ const AUTO_UPDATE_INTERVAL = 60 * 60 * 1000; // check every hour
 
 function tryAutoUpdate() {
   try {
+    // Слепое пятно git pull: в дев-дереве репо уезжает вперёд ЛОКАЛЬНЫМИ
+    // коммитами (bump-on-change поднимает версию при правках mcp-server),
+    // и pull отвечает «Already up to date», не замечая смены кода под
+    // процессом. Поэтому версия из package.json на диске сверяется с
+    // запущенной ПЕРВЫМ делом — расхождение само по себе повод к рестарту.
+    const diskVersion = createRequire(import.meta.url)('./package.json').version;
+    if (cmpVersion(diskVersion, PKG.version) !== 0) {
+      log(`Version on disk is ${diskVersion}, running ${PKG.version} — restarting to pick it up...`);
+      log('Shutting down gracefully...');
+      setTimeout(() => process.exit(0), 2000);
+      return;
+    }
     execSync('git rev-parse --git-dir', { cwd: __dirname, stdio: 'ignore' });
     const before = execSync('git rev-parse HEAD', { cwd: __dirname, encoding: 'utf8' }).trim();
     execSync('git pull --ff-only', { cwd: __dirname, stdio: 'ignore', timeout: 15000 });
