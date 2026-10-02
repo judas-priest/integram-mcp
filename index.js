@@ -1240,6 +1240,7 @@ Destructive and schema operations return "REQUIRES CONFIRMATION". Ask the user t
 
 ## Reporting platform issues
 - report_platform_issue(toolName, title, whatHappened, errorCode?, errorMessage?, category?, severity?, mcpVersion?) — отправить отчёт о проблеме платформы мейнтейнеру. ЗОВИ ЕГО: (1) после необъяснимого отказа инструмента — отказ не по правам/данным, а похожий на поломку (500, INTERNAL, противоречивый ответ); (2) когда несколько попыток подряд не приводят к цели и причина непонятна; (3) когда сам понял, что сделал не то, чего хотел пользователь, и это следствие ограничения платформы, а не твоей ошибки; (4) когда пользователь просит сообщить о проблеме. НЕ зови при обычных отказах прав (FORBIDDEN, NO_READ_ACCESS) — это законные ответы, не баги. Категория: bug — платформа сломалась; missing_capability — нужной возможности нет; docs — документация неясна или неверна; ux — работает, но против всякого здравого смысла. Перед вызовом составь черновик из контекста (что было целью, что делал, сколько попыток, что ответил сервер) и покажи пользователю. Секреты в поля не писать — сервер дополнительно санитизирует. Ответ содержит номер issue — назови его пользователю.
+- list_my_feedback() — показать пользователю его отчёты о проблемах и статус задач по ним (номер PM, статус, вхождения). Зови после отправки отчёта и когда пользователь спрашивает, что с его отчётом.
 `;
 
 const server = new Server(
@@ -1655,7 +1656,7 @@ export const EN_DESCRIPTIONS = {
   _load_schema_guide: 'Load the data modeling guide with schema examples. ALWAYS call before plan_schema or when you need to create/modify table structure.',
   search_tools: 'Discover and activate additional tools by keyword. Use when you need a capability missing from the current set (reports, schema, permissions, documents, automations).',
   list_tables: 'List workspace tables. Returns ID, name, column count, creation date. Supports search and sorting. Returns: { items:[{id,name,columns}], total }.',
-  list_objects: 'Get records from a table. THE ONLY source of record data — always call for "how many records", "show", "find". Response has fields aliased by column name plus summary (aggregation over ref columns: top values with counts). Filter with where: { "Column name": "value" } — simple substring match, e.g. { "Status": "Active" }. Use search for full-text lookup when the column alias is unknown. VIEWS: pass viewId to apply the filters of a saved view automatically (list them via list_views); viewId combines with where (extra filters applied on top). PAGINATION: if hasMore=true, request page=2,3... until all data collected. USE summary FOR THE BIG PICTURE: do not enumerate all rows when there are many — rely on summary (distribution by country, type, manufacturer). Records without a value appear as a separate { value: null, count: N, noValue: true } row — count them or "how many X" won\'t match total. For a single ref the count sum equals total; for a multi ref (:MULTI:) it is legitimately larger. If _summaryTruncated is set, only the most frequent values are shown for those columns.',
+  list_objects: 'Get records from a table. THE ONLY source of record data — always call for "how many records", "show", "find". Response has fields aliased by column name plus summary (aggregation over ref columns: top values with counts). Filter with where: { "Column name": "value" } — simple substring match, e.g. { "Status": "Active" }. Use search for full-text lookup when the column alias is unknown. VIEWS: pass viewId to apply the filters of a saved view automatically (list them via list_views); viewId combines with where (extra filters applied on top). PAGINATION: if hasMore=true, request page=2,3... until all data collected. USE summary FOR THE BIG PICTURE: do not enumerate all rows when there are many — rely on summary (distribution by country, type, manufacturer). Records without a value appear as a separate { value: null, count: N, noValue: true } row — count them or "how many X" won\'t match total. For a single ref the count sum equals total; for a multi ref (:MULTI:) it is legitimately larger. If _summaryTruncated is set, only the most frequent values are shown for those columns. parentId (number, optional): ID of the parent record — for child tables pass parentId to read ONE parent\'s rows (e.g. line items of one order); the summary is computed over the same narrowed set. Without it a child table returns rows of ALL parents.',
   get_object: 'Get a full object record by ID. Returns: { id, type:"object", ...fields }. Error: { error:"NOT_FOUND", message }. NOT for documents: if the ID is a document, use get_document(docId).',
   resolve_client: 'Recompute a client golden record from source rows using deterministic survivorship rules: per-field source priority + validators + lineage. Governed writeback — the only sanctioned way to write golden fields. Returns: { clientId, resolved, lineage, conflicts, goldenAddressId }.',
   list_specs: 'List specs (declarative data invariants) of a table. Returns: { items:[{id,name,definition,enabled}], total }.',
@@ -1781,7 +1782,7 @@ export const EN_DESCRIPTIONS = {
   list_doc_trash: 'List deleted documents (trash). Returns: { items:[{id,title,deletedAt}], total }.',
   restore_document: 'Restore a document from trash. Returns: { message }.',
   create_document_from_template: 'Create a new document from a template. A template is a document with is_template=true. Returns: { id, title }.',
-  generate_pdf: 'Generate a PDF from a template for a specific record. A template is a document with [Column] variables. Returns: { filename, size, base64 }.',
+  generate_pdf: 'Generate a PDF from a template for a specific record. A template is a document (delta blocks or HTML) with [Column], {{column}}, {{req_N}} or {{computed_N}} variables; formatters like {{column|currency}}. Use list_document_variables to discover them. Returns: { filename, size, base64 }.',
   generate_docx: 'Generate a DOCX from a record using a template. templateDocId — ID of a .docx file in the workspace file storage. Returns: { filename, message }.',
   // Automations
   list_automations: 'List all automations in the workspace. Returns: { items:[{id,name}], total }.',
@@ -2173,7 +2174,7 @@ export const EN_DESCRIPTIONS = {
   pm_unlink_data: 'Remove a data link between a PM issue and workspace data.',
   pm_list_data_links: 'List data links of a PM issue (linked tables, documents, reports).',
   pm_toggle_checklist: 'Toggle a checklist item on a PM issue by item id. Omit done to flip the current state. Item ids come from the issue checklist field; positions are not addressable.',
-  pm_bulk_update: 'Update multiple PM issues at once (e.g. set status/priority/assignee for a batch).',
+  pm_bulk_update: 'Update multiple PM issues at once (e.g. set status/priority/assignee for a batch). fields.assignee_id: numeric user ID, or a member name / @username / email (resolved against workspace membership; ambiguous or unknown name returns an error listing candidates — call pm_list_members to disambiguate). "null" clears the assignee.',
   pm_bulk_delete: 'Soft-delete multiple PM issues (move to trash).',
   pm_list_comments: 'List comments of a PM issue.',
   pm_update_comment: 'Edit a PM issue comment (author only).',
@@ -2194,6 +2195,7 @@ export const EN_DESCRIPTIONS = {
   pm_export_csv: 'Export PM issues to CSV. Returns { csv, rowCount }. Supports the same filters as pm_list_issues.',
   pm_list_sprints: 'List all sprints in the workspace.',
   report_platform_issue: 'Report a platform problem (unexplained tool failure, confusing result, unclear documentation) to the platform maintainer. Call after an unexplained tool error or on explicit user request; draft the report from the failure context first. The report body is sanitized of secrets, and the user confirms sending.',
+  list_my_feedback: "List the user's own platform-issue reports (report_platform_issue) with the status of their PM tasks: number, status, occurrence count. Returns: { items:[...], total, workspace }.",
   pm_create_sprint: 'Create a new sprint.',
   pm_update_sprint: 'Update an existing sprint.',
   pm_start_sprint: 'Start a sprint (changes status to active).',
