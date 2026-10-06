@@ -1818,7 +1818,7 @@ export const EN_DESCRIPTIONS = {
   remove_grant: 'Revoke access of a role or user to an object type (requires confirmation, admin only).',
   list_grants: 'List all workspace grants from the _v2_grants table. Filter by roleId or username. Returns: { items:[{id, role_id, username, target_type_id, level, can_export, can_delete}], total }.',
   // Roles
-  create_role: 'Create a custom role in the workspace (admin only). Returns: { id, type:"role", name, message }.',
+  create_role: 'Create a custom role in the workspace (admin only). Name: letters any alphabet, digits, spaces, dash, underscore; max 64. Returns: { id, type:"role", name, message }.',
   update_role: 'Update a role: name or description (admin only, requires confirmation). Returns: { id, type:"role", message }.',
   delete_role: 'Delete a custom role (admin only, requires confirmation). System roles cannot be deleted. Returns: { message }.',
   // Row rules
