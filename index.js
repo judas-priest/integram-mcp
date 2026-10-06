@@ -948,8 +948,7 @@ Activate via search_tools("memory").
 - share_insight(key, value) — share with other agents in shared namespace
 - find_procedure(query) — find step-by-step recipes from memory
 - list_contradictions / resolve_contradiction — manage conflicting facts
-- При старте сессии сервер сам приписывает правила и топ-факты воркспейса к первому ответу — не вызывай recall для этого.
-- Правила, обязательные для ВСЕХ агентов воркспейса (включая веб-чат), пиши через add_rule: их подхватывает каждый внутренний агент автоматически.
+- Правила и топ-факты воркспейса сервер сам приписывает к первому ответу (recall для этого не зови); общие для ВСЕХ агентов правила пиши через add_rule — их подхватывает каждый внутренний агент.
 
 ## Portal (admin)
 
