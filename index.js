@@ -1121,7 +1121,7 @@ Git repository hosting per workspace. Activate via search_tools("codespace").
 - get_pr(slug, number) — PR details
 - create_pr(slug, title, sourceBranch, targetBranch, description?, mergeStrategy?) — create PR
 - update_pr(slug, number, title?, description?, status?, mergeStrategy?) — update PR; pass status="open" to reopen
-- merge_pr(slug, number, strategy?) — merge PR into target branch. **TIER_HIGH**
+- merge_pr(slug, number, strategy?, allowKnownLoss?) — merge PR into target branch; rejected 409 MERGE_WOULD_REVERT when it erases recent target-branch edits (allowKnownLoss confirms intentional removal). **TIER_HIGH**
 - list_pr_comments(slug, number) — list PR comments
 - add_pr_comment(slug, number, body) — add comment to PR
 
@@ -2080,7 +2080,7 @@ export const EN_DESCRIPTIONS = {
   get_pr: 'Pull request details. Returns: { id, number, title, description, status, sourceBranch, targetBranch, mergeStrategy, ... }.',
   create_pr: 'Create a pull request. Returns: { id, number, title, status, ... }.',
   update_pr: 'Update a PR (title, description, status, strategy). To reopen pass status="open". Returns the updated PR.',
-  merge_pr: 'Merge a pull request into the target branch. Returns: { merged: true, commitHash, ... }.',
+  merge_pr: 'Merge a pull request into the target branch. Rejected with 409 MERGE_WOULD_REVERT when the merge would erase recent edits of the target branch — rebuild the source branch from the current target, or retry with allowKnownLoss: true if the removal is intentional. Returns: { merged: true, commitHash, ... }.',
   list_pr_comments: 'List PR comments. Returns: { items: [{ id, body, author_username, created_at }], total }.',
   add_pr_comment: 'Add a comment to a PR. Returns: { id, body, author_id, created_at }.',
   get_github_sync: 'Get the GitHub Sync configuration of a repository. Returns: { configured, remoteUrl, direction, autoSync, hasToken, lastSync, lastError }.',
