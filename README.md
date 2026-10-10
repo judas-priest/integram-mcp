@@ -15,12 +15,18 @@ claude mcp add integram \
   -e INTEGRAM_URL=https://ai2o.online \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.130
+  -- npx -y integram-mcp@0.7.131
 ```
 
 Ставить ничего не нужно: `npx` скачает пакет сам.
 
 **Номер версии в команде обязателен.** Плавающий `integram-mcp@latest` не годится по двум причинам. Первая: npx кэширует по строке запуска, поэтому окружение, чей кэш заполнился при старом `latest`, продолжает годами запускать ту сборку под тем же именем — открытая ошибка `npm/rfcs#700`. Второй: MCP-сервер по stdio исполняется на твоей машине с твоими правами и без песочницы, и плавающий номер означает «выполнить произвольный свежий код при каждом запуске клиента». О выходе новой версии сервер сообщит сам (см. ниже) — обновление остаётся осознанным движением.
+
+### Автообновление (для работающих в монорепозитории)
+
+В корне монорепозитория лежит `.mcp.json`: сервер integram стартует через `scripts/mcp-launcher.sh`, и версии руками не ставятся никогда — лаунчер сам спрашивает у npm свежий номер при каждом старте сервера (коннект, reconnect, resume) и запускает `npx integram-mcp@<номер>`. Обход кэша здесь честный: номер входит в строку спецификации, новая версия — новая строка — гарантированная загрузка. Нет сети — стартует последняя скачанная копия.
+
+Секьюрити-оговорка из прошлого абзаца действует и здесь, осознанно: лаунчер = «выполнять свежий код при каждом коннекте». Это выбор для машин разработчиков репозитория; для внешних пользователей — закреплённая версия из Быстрого старта.
 
 ### Из репозитория (для разработки сервера)
 
@@ -43,7 +49,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=http://localhost:8081 \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.130
+  -- npx -y integram-mcp@0.7.131
 ```
 
 Удалить: `claude mcp remove integram`
@@ -57,7 +63,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.130"],
+      "args": ["-y", "integram-mcp@0.7.131"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -77,7 +83,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.130"],
+      "args": ["-y", "integram-mcp@0.7.131"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
