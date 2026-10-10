@@ -241,6 +241,10 @@ export function withUpdateNotice(result) {
     extra.push(memoryBriefing);
     memoryBriefing = null; // one-shot: один брифинг на выбор воркспейса
   }
+  if (instanceNotice) {
+    extra.push(instanceNotice);
+    instanceNotice = null; // one-shot: блок платформы — один раз на процесс
+  }
   if (!extra.length) return result;
   return { ...result, content: [...result.content, { type: 'text', text: extra.join('\n') }] };
 }
@@ -275,8 +279,19 @@ export function buildUnreadNoticeText(data) {
 
 let memoryBriefing = null;        // текст текущего воркспейса, one-shot
 let memoryBriefingWs = null;      // для какого воркспейса собран
+// Инстанс-правила («Правила платформы») — уровень ПРОЦЕССА: блок платформы
+// доставляется один раз на жизнь процесса. При старте без воркспейса он едет
+// в приписке первого ответа; пер-воркспейсный брифинг после этого просит
+// только воркспейсный слой (?scope=workspace). Рестарт процесса возвращает
+// блок — та же семантика, что у совета по версии; это названная цена.
+let instanceNotice = null;        // one-shot текст блока платформы
+let instanceDelivered = false;    // блок уже доставлен в этой жизни процесса
 
 export function setMemoryBriefing(text, ws) { memoryBriefing = text; memoryBriefingWs = ws; }
+
+// Тестам и (будущему) ручному обновлению слоя; instanceDelivered не сбрасываем —
+// дедуп в пределах жизни процесса не должен обходиться через сеттер.
+export function setInstanceNotice(text) { instanceNotice = text; }
 
 export function buildMemoryBriefingText({ rules, items }) {
   const parts = [];
@@ -298,11 +313,28 @@ async function checkMemoryBriefing() {
   // Фиксируем воркспейс ДО await: две быстрые смены подряд не должны дать
   // позднему ответу пометить текст чужим слагом (гоночная заметка ревью).
   const ws = workspace;
-  if (!ws || memoryBriefingWs === ws) return;
+  // Без воркспейса — единственный шанс доставить инстанс-слой ДО первого
+  // выбора (сессия стартует с (none)); блок платформы eдет один раз на процесс.
+  if (!ws) {
+    if (instanceDelivered) return;
+    try {
+      await ensureAuth();
+      const res = await apiFetch('/api/v2/instance/swarm-memory/rules', { signal: AbortSignal.timeout(3000) });
+      const rules = (res.data || res)?.rules || '';
+      if (rules) {
+        instanceNotice = ['\n📎 Правила платформы (общие для всех воркспейсов):', String(rules).trim()].join('\n');
+        log(instanceNotice);
+      }
+      instanceDelivered = true; // ставим и при пустом слое — второй фетч не нужен
+    } catch { /* нет сети — при следующем (none)-вызове повторим */ }
+    return;
+  }
+  if (memoryBriefingWs === ws) return;
   try {
     await ensureAuth();
+    const rulesScope = instanceDelivered ? '?scope=workspace' : ''; // дедуп: блок платформы уже в контексте
     const [rulesRes, recallRes] = await Promise.all([
-      apiFetch(`/api/v2/${ws}/swarm-memory/rules`, { signal: AbortSignal.timeout(3000) }),
+      apiFetch(`/api/v2/${ws}/swarm-memory/rules${rulesScope}`, { signal: AbortSignal.timeout(3000) }),
       apiFetch(`/api/v2/${ws}/swarm-memory/recall`, { signal: AbortSignal.timeout(3000) }),
     ]);
     if (memoryBriefingWs === ws) return; // воркспейс сменился, пока летел запрос
@@ -311,6 +343,8 @@ async function checkMemoryBriefing() {
     const text = buildMemoryBriefingText({ rules, items });
     setMemoryBriefing(text, ws);
     if (text) log(text);
+    // Без ?scope прилетели ОБА блока — инстанс-слой уже в контексте, дальше дедуп
+    if (!rulesScope) instanceDelivered = true;
   } catch { /* нет сети — сессия работает без брифинга */ }
 }
 
@@ -949,7 +983,7 @@ Activate via search_tools("memory").
 - share_insight(key, value) — share with other agents in shared namespace
 - find_procedure(query) — find step-by-step recipes from memory
 - list_contradictions / resolve_contradiction — manage conflicting facts
-- Правила и топ-факты воркспейса сервер сам приписывает к первому ответу (recall для этого не зови); общие для ВСЕХ агентов правила пиши через add_rule — их подхватывает каждый внутренний агент.
+- Правила и топ-факты воркспейса сервер сам приписывает к первому ответу (recall для этого не зови); правила воркспейса пиши через add_rule (без scope) — их подхватывает каждый внутренний агент. scope=instance — только admin, факты/указатели для всех воркспейсов инстанса.
 
 ## Portal (admin)
 
@@ -1765,9 +1799,9 @@ export const EN_DESCRIPTIONS = {
   list_contradictions: 'Show unresolved contradictions in memory. Use when you need to clarify with the user what is current.',
   resolve_contradiction: 'Resolve a contradiction between two memory facts after clarifying with the user.',
   find_procedure: 'Find a procedure (step-by-step recipe) in memory by topic. Use before complex operations.',
-  list_rules: 'Show all workspace rules — positive instructions all agents must follow.',
-  add_rule: 'Add a workspace rule — a positive instruction for all agents (max 500 chars, up to 50 rules).',
-  remove_rule: 'Remove a workspace rule by key. Get keys via list_rules.',
+  list_rules: 'Show rules — workspace layer by default, or the instance layer (scope=instance: facts/pointers for ALL workspaces).',
+  add_rule: 'Add a workspace rule — a positive instruction for all agents (max 500 chars, up to 50 rules). scope=instance: admin-only, max 300 chars, FACT or POINTER only, never a directive (lands in every workspace context; keep the layer under ~10 entries).',
+  remove_rule: 'Remove a rule by key. Get keys via list_rules.',
   list_shared_memories: 'List shared memories available to all agents.',
   get_shared_state: 'Get a value from the shared state. Without a key — all entries.',
   set_shared_state: 'Set a value in the shared state to coordinate between agents.',
