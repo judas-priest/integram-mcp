@@ -412,6 +412,7 @@ Phrase triggers — user wording maps to a tool group; activate it and use its t
 - Labels answer «откуда задача и про что» — self-explanatory words, no cryptic codes: источник («спека»), область (backend/frontend/platform), тема («pm», «orgs»). Срочность живёт в priority, НЕ в метках. 2-4 per task. Setting labels REPLACES the whole array — read current labels first when adding to existing.
 - Estimates (1-2-3-5-8-13-21) only for OPEN tasks; don't set on done.
 - Never invent due_date; set it only if the user named a date. Done-статус — переходом через pm_update_issue, не сразу при создании.
+- Mutating an issue by internal id? Pass expectedNumber (the PM-N you believe the id holds): a mismatch is rejected 409 NUMBER_MISMATCH before anything is written — parallel sessions and SQL id|number columns make id mix-ups routine.
 - Child issues do NOT inherit labels from their epic — set labels explicitly on every create.
 - Ask ONLY when: the wording fits both a PM task and something else (EAV record / document), or a bulk breakdown (>3 tasks) has no obvious split.
 
@@ -803,7 +804,7 @@ create_automation({ name, trigger: { type, typeId }, active?, condition, actions
   on_member_joined: событие member.joined — новый участник воркспейса (пригласительная ссылка); в действиях доступны {{memberUserId}}, {{memberEmail}}, {{memberRole}}, {{workspaceSlug}}, {{meta}}
   pm_deadline: { days: N (за сколько дней до due_date PM-задачи, default 1), hour: 0-23 (час UTC ежедневного скана, default 7) }; в действиях доступны {{pm_title}}, {{pm_number}}, {{pm_due_date}}, {{pm_assignee_email}} (send_notification адресуйте username: '{{pm_assignee_email}}')
   on_issue_commented / on_issue_updated: событие PM-задачи (комментарий / правка полей), pm-переменные те же
-- Actions: send_notification, send_notification_to_group, update_field, create_object, delete_object, fire_webhook, run_ai_agent, run_script, run_server_function, run_video_job, send_telegram, send_telegram_media, create_document, run_connector, send_email, update_related_records, set_requisite, update_related, http_request, if_else, switch, transform, wait_delay, request_approval, delegate_to_agent, invoke_agent, send_invoice, telegram_forward, answer_inline_query, telegram_ban, telegram_unban, telegram_restrict, telegram_promote, telegram_approve_join, telegram_decline_join, telegram_pin, telegram_unpin, telegram_get_chat, telegram_post_story, answer_shipping, telegram_business_reply, create_issue, update_issue, link_issue
+- Actions: send_notification, send_notification_to_group, update_field, create_object, delete_object, fire_webhook, run_ai_agent, run_script, run_server_function, run_video_job, send_telegram, send_telegram_media, create_document, run_connector, send_email, update_related_records, set_requisite, update_related, http_request, if_else, switch, transform, wait_delay, request_approval, delegate_to_agent (работает и с internal-агентами реестра воркспейса), invoke_agent, send_invoice, telegram_forward, answer_inline_query, telegram_ban, telegram_unban, telegram_restrict, telegram_promote, telegram_approve_join, telegram_decline_join, telegram_pin, telegram_unpin, telegram_get_chat, telegram_post_story, answer_shipping, telegram_business_reply, create_issue, update_issue, link_issue
   create_issue: { title, description?, issue_type?, priority?, assignee_id?, parent_id?, board_id?, sprint_id?, due_date?, estimate?, labels?, assigneeRole?, assigneeStrategy? } — создаёт PM-задачу; результат: {{_created_issue_id}}, {{_created_issue_number}}. assigneeRole — имя EAV-таблицы-роли воркспейса (строки = участники, у каждого логин в колонке «Логин»/«Username»/«Email», колонка ищется по имени или алиасу); assigneeStrategy: least_busy (умолчание) | first; assignee_id и assigneeRole взаимно исключают друг друга — конфликт отвергается при сохранении. Роль без резолвимых участников → задача без исполнителя + уведомление роли (или триггера), прогон не падает.
   link_issue: { issue_id?, issue_number?, target_type?, target_id? } — привязывает задачу к цели через data-links (issue_id или issue_number; без них берётся {{_created_issue_id}} предыдущего create_issue); 409 (связь уже стоит) считается успехом.
   update_issue: { id, title?, description?, issue_type?, status?, priority?, assignee_id?, sprint_id?, parent_id?, estimate?, due_date?, labels? } — правит PM-задачу; id можно взять из {{pm_issue_id}}
@@ -990,7 +991,7 @@ Client-facing portal management. Activate via search_tools("portal"); for @kit b
 **Telegram Bots:**
 - list_telegram_bots() — list all Telegram bots for the workspace
 - create_telegram_bot(name, username, token, config?) — create bot + auto-register webhook. **Requires confirmation.**
-- update_telegram_bot(id, ...) — update bot (name, username, token, enabled, config). Token change re-registers webhook. **Requires confirmation.**
+- update_telegram_bot(id, ...) — update bot (name, username, token, enabled, config). config is replaced wholesale (no merge) — pass the full config. Token change re-registers webhook. **Requires confirmation.**
 - delete_telegram_bot(id) — permanently delete bot. **Requires HITL confirmation.**
 - sync_telegram_bot(id) — sync config → Telegram API (commands menu, description, short description, menu button). **Requires confirmation.**
 - get_telegram_bot_status(id) — get bot info (getMe) + webhook status (getWebhookInfo). Read-only.
@@ -1027,6 +1028,7 @@ Client-facing portal management. Activate via search_tools("portal"); for @kit b
 - telegram_set_business_name(botId, businessConnectionId, firstName, lastName?) — set account name. **Requires confirmation.**
 
 Bot config schema: { description?: "...", shortDescription?: "...", welcomeMessage?: "...", menuButton?: {type: "commands"|"web_app"|"default"}, employeeTable?: {typeId, chatIdReqId, roleReqId, emailReqId?} }.
+config.builtinsDisabled: true — клиентский бот без встроенных обработчиков (только welcomeMessage, правила, платежи); в области с ботом сотрудников (employeeTable) новый бот обязан быть клиентским или нести свою employeeTable.
 Bot reactions (commands + keywords) are stored as **automations** with trigger.botId — use create_automation with:
 - Command: trigger: { type: "on_telegram_command", command: "status", botId: N }
 - Keyword: trigger: { type: "on_telegram_message", pattern: "привет,hello", matchMode: "contains", botId: N }
@@ -1271,8 +1273,8 @@ Create Excel files from raw data. Available via search_tools("workspace excel xl
 ## External agents
 
 Delegate tasks to registered external agents. Activate via search_tools("agents").
-- list_agents — discover available external agents and their capabilities
-- delegate_to_agent(agentSlug, task, context) — send a task to an external agent and get the result
+- list_agents — discover available registry agents (external and internal) and their capabilities
+- delegate_to_agent(agentSlug, task, context) — delegate a task to a registry agent by slug: external via callback URL, internal (workspace-defined) via the shared agent executor (its prompt and tools); returns the result
 
 ## Meta KB mode
 
@@ -2018,8 +2020,8 @@ export const EN_DESCRIPTIONS = {
   get_schema_graph: 'Get the workspace schema graph — all tables, columns and relations between them. Use to analyze data structure and find dependencies. Returns: { types:[...], edges:[...] }.',
   convert_column_to_ref: 'Convert a text column into a reference. Creates a lookup table from the unique column values and replaces the column with a ref (requires confirmation — changes the schema).',
   // External agents
-  list_agents: 'List registered external agents and their capabilities. Use to discover available specialists before delegating tasks.',
-  delegate_to_agent: 'Delegate a task to an external agent by slug. The agent processes the task and returns a result. Returns: { type:"agent_response", message }.',
+  list_agents: 'List registered registry agents (external and internal) and their capabilities. Use to discover available specialists before delegating tasks.',
+  delegate_to_agent: 'Delegate a task to a registry agent by slug: external — via callback URL, internal (workspace-defined) — run by the shared agent executor (its prompt and tools). Returns: { type:"agent_response", message }.',
   list_agent_suggestions: 'List agent-creation suggestions based on behavioral patterns.',
   apply_agent_suggestion: 'Apply a suggestion — create an agent from the detected pattern (requires confirmation).',
   dismiss_agent_suggestion: 'Dismiss an agent-creation suggestion.',
@@ -2034,8 +2036,8 @@ export const EN_DESCRIPTIONS = {
   portal_publish: 'Enable (active=true) or disable (active=false) the portal. Requires confirmation.',
   // Telegram management
   list_telegram_bots: 'List workspace Telegram bots. Returns ID, name, username, enabled, config.',
-  create_telegram_bot: 'Create a new Telegram bot. Registers the webhook automatically. name — display name, username — the @username of the bot in Telegram, token — the token from @BotFather. config.commands — array of commands: [{command:"/status", description:"Status", action:"reply", replyText:"Your order..."}]. Requires confirmation.',
-  update_telegram_bot: 'Update a Telegram bot. If token changes, the webhook is re-registered. Requires confirmation.',
+  create_telegram_bot: 'Create a new Telegram bot. Registers the webhook automatically. name — display name, username — the @username of the bot in Telegram, token — the token from @BotFather. config.commands — array of commands: [{command:"/status", description:"Status", action:"reply", replyText:"Your order..."}]. config.builtinsDisabled: true — клиентский бот без встроенных обработчиков (только welcomeMessage, правила, платежи); в области с ботом сотрудников (employeeTable) новый бот обязан быть клиентским или нести свою employeeTable. Requires confirmation.',
+  update_telegram_bot: 'Update a Telegram bot. config is replaced WHOLESALE (no merge) — pass the full config (read current via list_telegram_bots) or commands/keywords/flags are lost. If token changes, the webhook is re-registered. config.builtinsDisabled: true — клиентский бот без встроенных обработчиков (только welcomeMessage, правила, платежи); в области с ботом сотрудников (employeeTable) новый бот обязан быть клиентским или нести свою employeeTable. Requires confirmation.',
   delete_telegram_bot: 'Delete a Telegram bot. Irreversible. Requires HITL confirmation.',
   sync_telegram_bot: 'Sync the bot config with the Telegram API — sends commands (setMyCommands), description (setMyDescription), short description (setMyShortDescription), menu button (setChatMenuButton). Requires confirmation.',
   get_telegram_bot_status: 'Get the bot status from Telegram — bot info (getMe) and webhook state (getWebhookInfo: URL, pending updates, last error).',
@@ -2214,10 +2216,10 @@ export const EN_DESCRIPTIONS = {
   pm_list_rituals: 'List dev rituals (metronome): cron schedule, owner, norm, held/missed stats for the last week.',
   pm_save_ritual: 'Create or update a dev ritual. cron: 5 fields (minute hour day month weekday), UTC (e.g. "30 6 * * 1-5" = Mon-Fri 06:30 UTC). Pass id to update; omitted fields are left unchanged.',
   pm_hold_ritual: 'Mark a ritual as held, missed, or skipped — writes to the metronome log for the current minute. status: held (default) | missed | skipped.',
-  pm_list_issues: 'List PM issues with optional filters.',
+  pm_list_issues: 'List PM issues with optional filters. Returns compact rows: description and checklist are stripped; response is { items, total, limit, offset, has_more }. Full text of one issue: pm_get_issue(id). To include heavy fields in the list pass include:["description","checklist"]. Do not call the list to read a single issue — use pm_get_issue. Bulk CSV export: pm_export_csv.',
   pm_get_issue: 'Get full details of a PM issue by ID.',
   pm_create_issue: 'Create a new PM issue. Assignee. If the user named anyone — pass them here (numeric user ID, or a member name / @username / email — the backend resolves it against workspace membership; ambiguous or unknown name returns an error listing candidates: call pm_list_members to disambiguate). Default to the calling user ONLY when no assignee was mentioned — never default to yourself when a name was given. Pass null explicitly to leave unassigned. Trigger phrases: "create a task", "task in PM" — prefer this over create_object and documents. NOT for plain table records: create_object(typeId, fields). For multi-part work create an epic and attach child issues (parent_id) with labels — not one task with a wall of text.',
-  pm_update_issue: 'Update an existing PM issue. New assignee: numeric user ID, or a member name / @username / email (resolved against workspace membership; ambiguous or unknown name returns an error listing candidates — call pm_list_members to disambiguate). "null" clears the assignee. A checklist field passed here is ignored — checklist items are edited one at a time via pm_toggle_checklist and the issue checklist routes; pm_bulk_update rejects the field with a 400.',
+  pm_update_issue: 'Update an existing PM issue. New assignee: numeric user ID, or a member name / @username / email (resolved against workspace membership; ambiguous or unknown name returns an error listing candidates — call pm_list_members to disambiguate). "null" clears the assignee. A checklist field passed here is ignored — checklist items are edited one at a time via pm_toggle_checklist and the issue checklist routes; pm_bulk_update rejects the field with a 400. Pass expectedNumber to guard against a wrong id: it is checked before anything is written.',
   pm_delete_issue: 'Soft-delete a PM issue.',
   pm_move_issue: 'Move an issue to a different sprint, parent, or reorder within a list.',
   pm_add_comment: 'Add a comment to a PM issue.',
