@@ -75,10 +75,10 @@ async function apiFetch(path, opts = {}, _retried = false) {
 // TD-065: отказ бэкенда → результат тула с isError:true (признак протокола MCP).
 // Чистый текст для модели: message + details, без JSON-обёртки всего ответа.
 // Тела нет (не JSON, сеть) — остаётся текст самой ошибки.
-function toolErrorResult(err) {
+export function toolErrorResult(err) {
   const be = err?.body?.error;
   const text = be
-    ? `Error: ${be.message || err.message}${be.details ? '\n\n' + JSON.stringify(be.details, null, 2) : ''}`
+    ? `Error: ${be.message || err.message}${be.details ? '\n\n' + JSON.stringify(be.details, null, 2) : ''}${be.hint ? '\n\nHint: ' + be.hint : ''}`
     : `Error: ${err?.message}`;
   return { content: [{ type: 'text', text }], isError: true };
 }
