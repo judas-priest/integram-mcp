@@ -11,11 +11,20 @@
  * потому что старый номер в npm существует и запускается.
  *
  * Прогон: npm test (и prepublishOnly — до выкладки, а не после).
+ *
+ * Второй сторож (12.10.2026): index.js обязан парситься. 0.7.136 уехал в npm
+ * с бэктиком внутри template-строки подсказки — SyntaxError на старте сервера,
+ * клиент молча не переподключился. node --check до любых проверок версий.
  */
 
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'fs';
 import { dirname, join, relative } from 'path';
 import { fileURLToPath } from 'url';
+
+execFileSync(process.execPath, ['--check',
+  new URL('../index.js', import.meta.url).pathname], { stdio: 'inherit' });
+console.log('index.js: синтаксис OK');
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgDir = join(here, '..');
