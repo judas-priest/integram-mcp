@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/integram-mcp)](https://www.npmjs.com/package/integram-mcp)
 
-MCP-сервер для Integram — даёт доступ к 775 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
+MCP-сервер для Integram — даёт доступ к 776 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
 
 Работает с облачным Integram на **ai2o.online** или с локальным сервером.
 
@@ -15,7 +15,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=https://ai2o.online \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.144
+  -- npx -y integram-mcp@0.7.145
 ```
 
 Ставить ничего не нужно: `npx` скачает пакет сам.
@@ -49,7 +49,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=http://localhost:8081 \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.144
+  -- npx -y integram-mcp@0.7.145
 ```
 
 Удалить: `claude mcp remove integram`
@@ -63,7 +63,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.144"],
+      "args": ["-y", "integram-mcp@0.7.145"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -83,7 +83,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.144"],
+      "args": ["-y", "integram-mcp@0.7.145"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -180,8 +180,8 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 | **nightcall** | Нормативная спецификация и проверяемая генерация: требования, обязательства, свидетельства, базовые линии | 44 |
 | **codespace** | Git-репозитории: ветки, коммиты, файлы, точечная правка (`patch_file`), pull requests; запись с `baseCommit` сливается с чужими изменениями вместо перезаписи | 37 |
 | **schema** | Таблицы, колонки, кнопки (AI/HTTP/script), вычисляемые колонки, валидация | 36 |
+| **memory** | Память агента, инсайты, процедуры, противоречия | 29 |
 | **orgs** | Организации: участники, области, приглашения | 29 |
-| **memory** | Память агента, инсайты, процедуры, противоречия | 28 |
 | **meta-kb** | Дебаты: параллельные эксперты, LLM-синтез, курирование знаний | 25 |
 | **core** | CRUD объектов, поиск, справочник платформы (docs_map/docs_search), граф, комментарии, bulk-операции | 21 |
 | **objects** | Перемещение, дублирование, переупорядочивание записей, корзина, обратные ссылки | 20 |
