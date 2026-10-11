@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/integram-mcp)](https://www.npmjs.com/package/integram-mcp)
 
-MCP-сервер для Integram — даёт доступ к 774 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
+MCP-сервер для Integram — даёт доступ к 775 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
 
 Работает с облачным Integram на **ai2o.online** или с локальным сервером.
 
@@ -15,7 +15,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=https://ai2o.online \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.143
+  -- npx -y integram-mcp@0.7.144
 ```
 
 Ставить ничего не нужно: `npx` скачает пакет сам.
@@ -49,7 +49,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=http://localhost:8081 \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.143
+  -- npx -y integram-mcp@0.7.144
 ```
 
 Удалить: `claude mcp remove integram`
@@ -63,7 +63,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.143"],
+      "args": ["-y", "integram-mcp@0.7.144"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -83,7 +83,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.143"],
+      "args": ["-y", "integram-mcp@0.7.144"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -193,10 +193,10 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 | **kag** | Граф знаний: поиск, обход, вопрос-ответ, ввоз сущностей и связей | 13 |
 | **comments** | Комментарии и реакции к записям | 7 |
 | **video** | обучающие видео (сценарий→запись→озвучка→монтаж) | 6 |
+| **advisor** | Советы эксперта, возможности платформы | 5 |
 | **automations** | Детали автоматизации, лог доставки вебхуков | 5 |
 | **history** | История изменений объектов, откат | 5 |
 | **workspace-tools** | Инструменты уровня области: регистрация, правка, ввоз наборов | 5 |
-| **advisor** | Советы эксперта, возможности платформы | 4 |
 | **bulk** | Массовые операции: создание, обновление, удаление, AI-batch | 4 |
 | **dlp** | Контур защиты от утечек: DLP-правила воркспейса (список, создание, правка, удаление; только admin) | 4 |
 | **ai** | Синтез речи (TTS): озвучка текста, список голосов | 3 |
