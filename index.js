@@ -546,7 +546,7 @@ const READ_ONLY_TOOLS = new Set([
   'list_tables', 'list_objects', 'list_views', 'get_view', 'get_object', 'get_related', 'graph_query',
   'list_documents', 'get_object_history', 'list_comments', 'semantic_search',
   'get_table_schema', 'list_reports', 'get_report', 'describe_report',
-  'list_members', 'list_roles', 'get_user_permissions', 'list_grants',
+  'list_members', 'list_roles', 'get_user_permissions', 'list_grants', 'list_domain_roles',
   'search_documents', 'get_document', 'get_document_blocks', 'workflow_get_state',
   'list_doc_versions', 'list_doc_sharing', 'list_doc_folders', 'list_doc_tags', 'preview_document',
   'get_block_history', 'get_doc_version',
@@ -960,6 +960,8 @@ export const EN_DESCRIPTIONS = {
   // Grants / permissions
   list_members: 'Show all workspace users with their roles and access level. Use for "show users", "who has access", "permissions", "member list" (admin only). Returns: { items:[{id,userId,email,name,username,role,roleId,roleName,lastSeenAt}], total }, where id is the membership ID (needed for remove_member and update_member_role — it is NOT userId), lastSeenAt — last visit, null if never visited.',
   list_roles: 'Show all roles and their access rights to object types (READ/WRITE/ADMIN). Use for "what roles exist", "role permissions", "what can an editor do" (admin only). Returns: { items:[{id,name}], total }.',
+  list_domain_roles: 'List domain (quartet) role assignments — the narrowing layer on top of the system role: effective access = min(system role, domain role), owner/admin unaffected. Returns: { items:[{id,username,email,role,roleId,roleName}] } (admin only).',
+  set_domain_role: 'Assign a domain (quartet) role to a user — a custom workspace role that can ONLY narrow their grants (it can never expand access). roleId=null clears the assignment. The role must be a custom role of THIS workspace (see list_roles) and the user must be a member. Requires confirmation (admin only). NOT a replacement for set_grant: regular role grants — set_grant.',
   get_user_permissions: 'Show all permissions of a specific user — which objects and at what level (READ/WRITE/ADMIN), whether they can export and delete (admin only).',
   get_permissions_report: 'Permissions matrix: users, roles, grants on object types (admin only).',
   set_grant: 'Grant or change access of a role or user to an object type (requires confirmation). level: NONE/READ/WRITE/ADMIN; NONE writes a DENY row (overrides the role grant for that targetTypeId) — to revoke a grant entirely use remove_grant. targetTypeId=0 means all types (admin only). NOT for portal settings: portal config — set_portal_config.',
