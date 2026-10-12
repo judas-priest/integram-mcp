@@ -441,7 +441,7 @@ Similar names are NOT interchangeable (set_grant vs set_portal_config): verify t
 The server appends workspace rules and top facts to the first tool response. Write workspace rules via add_rule without scope. scope=instance writes instance-wide rules: admin only, contents must be facts or pointers, never directives.
 
 ## Pointers
-Module guides → ask_advisor / docs_search / docs_read. Tool behavior → the tool's own description. Platform defects → report_platform_issue (see its description for the format).
+Module guides → ask_advisor / docs_search / docs_read. Tool behavior → the tool's own description. Platform defects → report_platform_issue (see its description for the format). Embedder method corpus (registered per installation) → docs_search finds it automatically — [instance doc] labels.
 `;
 
 const server = new Server(
