@@ -1355,10 +1355,10 @@ export const EN_DESCRIPTIONS = {
   get_tts_status: 'Check TTS (Piper) availability. Returns: { available, engine }.',
   // Workspace tools
   list_workspace_tools: 'List custom workspace tools executed in an isolated sandbox (isolated-vm). Optional: filter to active only.',
-  register_workspace_tool: 'Register a new custom workspace tool. Code runs in an isolated sandbox (isolated-vm).',
+  register_workspace_tool: 'Register a new custom workspace tool. Code runs in an isolated sandbox (isolated-vm). scope=instance: admin-only, the tool becomes executable in EVERY workspace (a workspace tool with the same name overrides it locally).',
   update_workspace_tool: 'Update an existing custom workspace tool.',
   delete_workspace_tool: 'Delete a custom workspace tool.',
-  import_tool_pack: 'Bulk-import a tool pack (set of custom tools) into the workspace.',
+  import_tool_pack: 'Bulk-import a tool pack (set of custom tools) into the workspace. scope=instance: admin-only, the whole pack becomes available in EVERY workspace.',
   // PM
   pm_briefing: 'Morning PM briefing: today\'s rituals, my in-progress issues, WIP limit overflows, blocked issues with reasons, overdue items. mine=false for a workspace-wide view without the assignee filter.',
   pm_list_rituals: 'List dev rituals (metronome): cron schedule, owner, norm, held/missed stats for the last week.',
