@@ -783,7 +783,7 @@ export const EN_DESCRIPTIONS = {
   run_review_gate: 'Run the AI review gate on a PR diff: reviewer + opponent + council verdict. Slow (LLM calls).',
   enqueue_machine_gate: 'Enqueue the machine gate (automated checks) for a PR. Returns jobId, or { enqueued: false } when Redis is unavailable.',
   get_machine_gate: 'Get the latest machine gate result for a PR. error NOT_FOUND when there is no result yet.',
-  set_repo_write_mode: 'Change repository write mode: requireBaseCommit (forbid writes without a fresh baseCommit) and the protectedBranches list. Admin only. Security policy change — expects confirmation.',
+  set_repo_write_mode: 'Change repository write mode: requireBaseCommit (forbid writes without a fresh baseCommit), the protectedBranches list, and requiredGates (обязательные гейты мержа PR). Admin only. Security policy change — expects confirmation.',
   get_tree_commits: 'Last commit per file for a batch of entries (up to 500) — a cheap way to annotate a file tree. Returns a commits map { path: { sha, subject, timestamp, authorName } }.',
   // Normalizer
   list_normalization_jobs: 'List recent workspace normalization jobs (last 100). Use get_normalization_status by jobId for details. Returns: { jobs: [{ jobId, status: { stage, progress, errors } }], total }.',
@@ -1230,7 +1230,7 @@ export const EN_DESCRIPTIONS = {
   get_pr: 'Pull request details. Returns: { id, number, title, description, status, sourceBranch, targetBranch, mergeStrategy, ... }.',
   create_pr: 'Create a pull request. Returns: { id, number, title, status, ... }.',
   update_pr: 'Update a PR (title, description, status, strategy). To reopen pass status="open". Returns the updated PR.',
-  merge_pr: 'Merge a pull request into the target branch. Rejected with 409 MERGE_WOULD_REVERT when the merge would erase recent edits of the target branch — rebuild the source branch from the current target, or retry with allowKnownLoss: true if the removal is intentional. Returns: { merged: true, commitHash, ... }.',
+  merge_pr: 'Merge a pull request into the target branch. Rejected with 409 MERGE_WOULD_REVERT when the merge would erase recent edits of the target branch — rebuild the source branch from the current target, or retry with allowKnownLoss: true if the removal is intentional. Rejected with 409 GATE_REQUIRED/GATE_STALE/GATE_FAILED when the repo has required gates and they are not green at the branch tip — run the gate or retry with allowGateBypass: true. Returns: { merged: true, commitHash, ... }.',
   list_pr_comments: 'List PR comments. Returns: { items: [{ id, body, author_username, created_at }], total }.',
   add_pr_comment: 'Add a comment to a PR. Returns: { id, body, author_id, created_at }.',
   get_github_sync: 'Get the GitHub Sync configuration of a repository. Returns: { configured, remoteUrl, direction, autoSync, hasToken, lastSync, lastError }.',
