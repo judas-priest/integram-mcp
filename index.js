@@ -26,6 +26,7 @@ import { createRequire } from 'module';
 import { rememberActivation as rememberActivationIn, applyActivation, forgetActivation } from './activation-memory.js';
 import { startOrphanWatchdog } from './orphan-watchdog.js';
 import { enqueuePending, takePending } from './pending-hitl.js';
+import { extractRefreshToken, pickAccessToken } from './auth-token.js';
 
 // Own identity — read from package.json, never hardcoded: a hardcoded copy drifts
 // (it sat at 0.5.0 through the 0.6.0 and 0.7.0 releases).
@@ -85,15 +86,18 @@ export function toolErrorResult(err) {
 
 async function login() {
   if (!EMAIL || !PASSWORD) throw new Error('INTEGRAM_EMAIL and INTEGRAM_PASSWORD are required');
-  const data = await apiFetch('/api/v2/iam/login', {
+  const res = await fetch(`${BASE_URL}/api/v2/iam/login`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: EMAIL, password: PASSWORD }),
   });
+  const data = await res.json().catch(() => ({}));
   if (!data.ok) throw new Error(`Login failed: ${JSON.stringify(data.error)}`);
-  accessToken = data.accessToken || data.data?.accessToken || data.data?.token;
-  refreshToken = data.refreshToken || data.data?.refreshToken;
+  accessToken = pickAccessToken(data);
+  // PM-1003: refresh-токен приезжает только Set-Cookie'ем — читаем его.
+  refreshToken = extractRefreshToken(data, res.headers.getSetCookie?.() ?? []);
   tokenExp = decodeExp(accessToken);
-  log(`Logged in as ${EMAIL}, token expires ${new Date(tokenExp * 1000).toISOString()}`);
+  log(`Logged in as ${EMAIL}, token expires ${new Date(tokenExp * 1000).toISOString()}, refresh: ${refreshToken ? 'captured' : 'none'}`);
 }
 
 async function ensureAuth() {
@@ -105,13 +109,18 @@ async function ensureAuth() {
   _authPromise = (async () => {
     if (refreshToken) {
       try {
-        const data = await apiFetch('/api/v2/iam/refresh', {
+        const rres = await fetch(`${BASE_URL}/api/v2/iam/refresh`, {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refreshToken }),
         });
+        const data = await rres.json().catch(() => ({}));
         if (data.ok) {
-          accessToken = data.accessToken || data.data?.accessToken || data.data?.token;
-          refreshToken = data.refreshToken || data.data?.refreshToken || refreshToken;
+          const nextAccess = pickAccessToken(data);
+          const nextRefresh = extractRefreshToken(data, rres.headers.getSetCookie?.() ?? []);
+          accessToken = nextAccess;
+          // Ротация: берём НОВЫЙ токен; старый мёртв — fallback на старый замаскировал бы потерю.
+          refreshToken = nextRefresh;
           tokenExp = decodeExp(accessToken);
           log('Token refreshed');
           return;
