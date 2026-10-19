@@ -163,10 +163,11 @@ export function compactToolResult(toolName, result) {
   }
 
   if (!fields) {
+    const partial = fitPartial(raw, OUTPUT_MAX_CHARS - 2000);
     fields = {
-      _compacted: `Показана часть: ${fmtKb(OUTPUT_MAX_CHARS - 2000)} из ${fmtKb(raw.length)}. Это НЕ полный ответ.`,
+      _compacted: `Показана часть: ${fmtKb(partial.length)} из ${fmtKb(raw.length)}. Это НЕ полный ответ.`,
       ...promoted,
-      partial: fitPartial(raw, OUTPUT_MAX_CHARS - 2000),
+      partial,
       _howToContinue: howToContinue(toolName, result),
     };
   }
@@ -176,12 +177,65 @@ export function compactToolResult(toolName, result) {
   // бюджет partial урезается на размер promoted, чтобы и здесь влезть.
   if (out.length > OUTPUT_MAX_CHARS) {
     const promotedJson = JSON.stringify(promoted);
+    const partial = fitPartial(raw, Math.max(OUTPUT_MAX_CHARS - 2000 - promotedJson.length, 500));
     out = JSON.stringify(envelope(toolName, {
-      _compacted: `Показана часть: ${fmtKb(OUTPUT_MAX_CHARS - 2000)} из ${fmtKb(raw.length)}. Это НЕ полный ответ.`,
+      _compacted: `Показана часть: ${fmtKb(partial.length)} из ${fmtKb(raw.length)}. Это НЕ полный ответ.`,
       ...promoted,
-      partial: fitPartial(raw, Math.max(OUTPUT_MAX_CHARS - 2000 - promotedJson.length, 500)),
+      partial,
       _howToContinue: howToContinue(toolName, result),
     }, raw.length));
+  }
+  return out;
+}
+
+// ── Кэп details ОШИБКИ ──
+// Стратегия «мелкое выживает»: служебные поля (baseCommit, hint, счётчики) —
+// это forensic passport ошибки, без которого агент не может продолжить
+// (канон Anthropic: усечение рулит текстом). Громоздкие блоки (конфликты
+// мержа, дампы) режутся, выброшенные ключи честно перечисляются.
+const ERROR_DETAILS_BUDGET = 20000;
+const SMALL_VALUE_CHARS = 1000;
+
+export function compactErrorDetails(details, budget = ERROR_DETAILS_BUDGET) {
+  if (details == null || typeof details !== 'object') return details;
+  if (Array.isArray(details)) {
+    // Массив — форма ошибки, не словарь: форму сохраняем, бюджету подчиняем
+    // (одиночный срез по соотношению размеров, с доводкой — эскейп-тяжёлые
+    // элементы могут надуть сериализацию после среза).
+    let arr = details;
+    for (let i = 0; i < 20 && arr.length > 1 && JSON.stringify(arr, null, 2).length > budget; i++) {
+      arr = arr.slice(0, Math.max(1, Math.floor(arr.length * budget / JSON.stringify(arr, null, 2).length)));
+    }
+    return arr;
+  }
+  // 'undefined' вместо падения: JSON.stringify(undefined) === undefined —
+  // живой объект (не из JSON.parse) не должен ломать весь error-путь.
+  const size = (v) => (JSON.stringify(v, null, 2) ?? 'undefined').length;
+  const entries = Object.entries(details);
+  const small = entries.filter(([, v]) => size(v) <= SMALL_VALUE_CHARS);
+  const big = entries.filter(([, v]) => size(v) > SMALL_VALUE_CHARS);
+  const out = {};
+  const dropped = [];
+  let used = 2;
+  // Сначала всё мелкое (пока влезает) — служебные поля важнее громоздких.
+  for (const [k, v] of small) {
+    const s = size(v);
+    if (used + s > budget) { dropped.push(k); continue; }
+    out[k] = v;
+    used += s + k.length + 6;
+  }
+  // Потом крупные — по остаточному бюджету.
+  for (const [k, v] of big) {
+    const s = size(v);
+    if (used + s > budget) { dropped.push(k); continue; }
+    out[k] = v;
+    used += s + k.length + 6;
+  }
+  if (dropped.length) {
+    // Наши ключи — последними: данные details не могут подделать сигнал
+    // (собственный _droppedDetails/_hint из details затирается здесь).
+    out._droppedDetails = dropped;
+    out._hint = `Часть деталей ошибки урезана по размеру: ${dropped.join(', ')}. Мелкие служебные поля (baseCommit и т.п.) сохранены — без них продолжение невозможно.`;
   }
   return out;
 }

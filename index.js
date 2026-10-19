@@ -26,7 +26,7 @@ import { createRequire } from 'module';
 import { rememberActivation as rememberActivationIn, applyActivation, forgetActivation } from './activation-memory.js';
 import { startOrphanWatchdog } from './orphan-watchdog.js';
 import { enqueuePending, takePending } from './pending-hitl.js';
-import { compactToolResult } from './output-cap.js';
+import { compactToolResult, compactErrorDetails } from './output-cap.js';
 import { extractRefreshToken, pickAccessToken } from './auth-token.js';
 
 // Own identity — read from package.json, never hardcoded: a hardcoded copy drifts
@@ -80,7 +80,7 @@ async function apiFetch(path, opts = {}, _retried = false) {
 export function toolErrorResult(err) {
   const be = err?.body?.error;
   const text = be
-    ? `Error: ${be.message || err.message}${be.details ? '\n\n' + JSON.stringify(be.details, null, 2) : ''}${be.hint ? '\n\nHint: ' + be.hint : ''}`
+    ? `Error: ${be.message || err.message}${be.details ? '\n\n' + JSON.stringify(compactErrorDetails(be.details), null, 2) : ''}${be.hint ? '\n\nHint: ' + be.hint : ''}`
     : `Error: ${err?.message}`;
   return { content: [{ type: 'text', text }], isError: true };
 }
@@ -1632,7 +1632,7 @@ async function dispatchTool(request) {
       // с исходной версией, новый baseCommit, признак повторяемости.
       // Без него вызывающий видит только текст и вынужден гадать.
       const text = result.details
-        ? `Error: ${result.message}\n\n${JSON.stringify(result.details, null, 2)}`
+        ? `Error: ${result.message}\n\n${JSON.stringify(compactErrorDetails(result.details), null, 2)}`
         : `Error: ${result.message}`;
       return { content: [{ type: 'text', text }], isError: true };
     }
