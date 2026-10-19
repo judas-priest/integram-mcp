@@ -26,6 +26,7 @@ import { createRequire } from 'module';
 import { rememberActivation as rememberActivationIn, applyActivation, forgetActivation } from './activation-memory.js';
 import { startOrphanWatchdog } from './orphan-watchdog.js';
 import { enqueuePending, takePending } from './pending-hitl.js';
+import { compactToolResult } from './output-cap.js';
 import { extractRefreshToken, pickAccessToken } from './auth-token.js';
 
 // Own identity — read from package.json, never hardcoded: a hardcoded copy drifts
@@ -435,7 +436,7 @@ list_workspaces → switch_workspace (required), or create_workspace.
 
 ## Tool discovery
 Only core tools are active from the start; search_tools(keyword) activates groups on demand and reports what it activated.
-docs_map(), docs_search(query), ask_advisor(question) read the platform docs corpus from the start — use them before guessing.
+docs_map(), docs_search(query) read the platform docs corpus from the start; ask_advisor(question) reads it too but belongs to the advisor group — activate it first with search_tools("advisor"). Use them before guessing.
 Similar names are NOT interchangeable (set_grant vs set_portal_config): verify the exact name before a confirmation-gated call; never substitute a similar active tool.
 
 ## PM task policy
@@ -967,7 +968,7 @@ export const EN_DESCRIPTIONS = {
   report_bulk_update: 'Bulk-update records via SET expressions on report columns (requires confirmation). Works only if the report has SET columns. Returns: { count, preview } or a confirmation status.',
   set_report_visibility: 'Show or hide a report in the list.',
   // Grants / permissions
-  list_members: 'Show all workspace users with their roles and access level. Use for "show users", "who has access", "permissions", "member list" (admin only). Returns: { items:[{id,userId,email,name,username,role,roleId,roleName,lastSeenAt}], total }, where id is the membership ID (needed for remove_member and update_member_role — it is NOT userId), lastSeenAt — last visit, null if never visited.',
+  list_members: 'Show all workspace users with their roles and access level. Use for "show users", "who has access", "permissions", "member list" (admin only). Returns: { items:[{membershipId,userId,email,name,username,role,roleId,roleName,lastSeenAt}], total }, where membershipId is the membership ID (needed for remove_member and update_member_role — it is NOT userId), lastSeenAt — last visit, null if never visited.',
   list_roles: 'Show all roles and their access rights to object types (READ/WRITE/ADMIN). Use for "what roles exist", "role permissions", "what can an editor do" (admin only). Returns: { items:[{id,name}], total }.',
   list_domain_roles: 'List domain (quartet) role assignments — the narrowing layer on top of the system role: effective access = min(system role, domain role), owner/admin unaffected. Returns: { items:[{id,username,email,role,roleId,roleName}] } (admin only).',
   set_domain_role: 'Assign a domain (quartet) role to a user — a custom workspace role that can ONLY narrow their grants (it can never expand access). roleId=null clears the assignment. The role must be a custom role of THIS workspace (see list_roles) and the user must be a member. Requires confirmation (admin only). NOT a replacement for set_grant: regular role grants — set_grant.',
@@ -1265,7 +1266,7 @@ export const EN_DESCRIPTIONS = {
   // Normalizer
   start_normalization: 'Start normalization of files from a folder. mode=auto — fully automatic; mode=assisted — with schema confirmation. Returns a jobId for tracking.',
   get_normalization_status: 'Get normalization job status by jobId.',
-  confirm_normalization_schema: 'Confirm the data schema designed by the normalizer (HITL step). Call when status.stage = "architecting".',
+  confirm_normalization_schema: 'Confirm the data schema designed by the normalizer (HITL step). Call when status.stage = "architecting" AND status.schemaTables > 0 from get_normalization_status — the stage is set before the architect answers; at schemaTables = 0 the call returns "schema is still being built".',
   confirm_normalization_resolution: 'Confirm entity matching (deduplication). Call when pendingApprovals > 0.',
   cancel_normalization: 'Cancel a normalization job.',
   // Timeseries
@@ -1331,7 +1332,7 @@ export const EN_DESCRIPTIONS = {
   // Activity Intelligence
   get_team_activity: 'Team activity stats: messages, closed topics, tasks (including overdue), decisions, debates, reactions per member. Hot topics, blockers, recent decisions.',
   get_user_activity: 'Get activity for a specific user: messages, tasks (open/completed/overdue), decisions, blockers assigned to them.',
-  generate_team_digest: 'AI team digest: who completed what, blockers, overdue items, accepted decisions, participation balance.',
+  generate_team_digest: 'AI team digest: who completed what, blockers, overdue items, accepted decisions, participation balance. Counts teamchat messages/topics, decisions and debates — PM tasks are NOT included — use pm_briefing for those.',
   // Orgs
   list_orgs: 'List organizations of the current user.',
   get_org: 'Get organization info by slug.',
@@ -1615,7 +1616,7 @@ async function dispatchTool(request) {
           return toolErrorResult(resumeErr);
         }
         return {
-          content: [{ type: 'text', text: typeof resumeData.data === 'string' ? resumeData.data : JSON.stringify(resumeData.data) }],
+          content: [{ type: 'text', text: compactToolResult(name, resumeData.data) }],
         };
       } catch (e) {
         log(`Elicitation not supported by client or failed: ${e.message}`);
@@ -1637,7 +1638,7 @@ async function dispatchTool(request) {
     }
 
     return {
-      content: [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result, null, 2) }],
+      content: [{ type: 'text', text: compactToolResult(name, result) }],
     };
   } catch (err) {
     return toolErrorResult(err);
@@ -1653,11 +1654,17 @@ async function handleConfirmAction(approved, confirmId) {
   if (taken.error === 'EMPTY') {
     return { content: [{ type: 'text', text: 'No pending action to confirm.' }], isError: true };
   }
+  // PM-1017: протухшее подтверждение (TTL 10 минут, очередь в памяти процесса) —
+  // отдельный отказ: агент сразу повторяет операцию, а не ищет чужой confirmId.
+  if (taken.error === 'EXPIRED') {
+    return { content: [{ type: 'text', text: `Pending action expired (TTL ${Math.round(HITL_QUEUE_TTL_MS / 60000)} min). Repeat the operation to get a fresh confirmation.` }], isError: true };
+  }
   if (taken.error === 'AMBIGUOUS') {
     return { content: [{ type: 'text', text: `Multiple pending actions; pass confirmId of the one the user approved: ${taken.available.join(', ')}.` }], isError: true };
   }
   if (taken.error === 'UNKNOWN_CONFIRM_ID') {
-    return { content: [{ type: 'text', text: `No pending action with confirmId "${confirmId}". Live ids: ${taken.available.join(', ') || 'none'}.` }], isError: true };
+    const expiredNote = taken.expiredHint ? ' Older pending actions may have expired (TTL 10 min) — repeat the operation if this was one of them.' : '';
+    return { content: [{ type: 'text', text: `No pending action with confirmId "${confirmId}". Live ids: ${taken.available.join(', ') || 'none'}.${expiredNote}` }], isError: true };
   }
 
   const pending = taken.entry;

@@ -1,6 +1,6 @@
 {
   "name": "integram-mcp",
-  "version": "0.7.151",
+  "version": "0.7.154",
   "type": "module",
   "description": "MCP server for Integram — connect AI assistants to your workspace via Model Context Protocol",
   "mcpName": "io.github.judas-priest/integram",
@@ -26,6 +26,7 @@
   "files": [
     "index.js",
     "activation-memory.js",
+    "output-cap.js",
     "pending-hitl.js",
     "orphan-watchdog.js",
     "auth-token.js"

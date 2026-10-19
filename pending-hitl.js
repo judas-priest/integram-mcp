@@ -37,16 +37,27 @@ export function enqueuePending(queue, entry, { now, ttlMs, maxSize }) {
  * @returns {{ entry: object, remaining: number } | { error: string, available: string[] }}
  */
 export function takePending(queue, confirmId, { now = Date.now(), ttlMs } = {}) {
+  const prePurge = queue.length;
   if (ttlMs != null) {
     while (queue.length && queue[0].createdAt < now - ttlMs) queue.shift();
   }
+  const expiredCount = prePurge - queue.length;
   const available = queue.map((e) => e.id);
-  if (!queue.length) return { error: 'EMPTY', available: [] };
+  if (!queue.length) {
+    // PM-1017: «протухло» и «не было» — разные отказы: агент по EXPIRED понимает,
+    // что операцию надо ПОВТОРИТЬ, а не искать чужой confirmId.
+    if (expiredCount > 0) return { error: 'EXPIRED', available: [], expiredCount };
+    return { error: 'EMPTY', available: [] };
+  }
   if (confirmId == null) {
     if (queue.length > 1) return { error: 'AMBIGUOUS', available };
     return { entry: queue.shift(), remaining: queue.length };
   }
   const idx = queue.findIndex((e) => e.id === confirmId);
-  if (idx === -1) return { error: 'UNKNOWN_CONFIRM_ID', available };
+  if (idx === -1) {
+    // Именованный id мог протухнуть, пока очередь жива другими ожиданиями, —
+    // точного различения нет (историю id не храним), подсказываем обе причины.
+    return { error: 'UNKNOWN_CONFIRM_ID', available, expiredHint: expiredCount > 0 };
+  }
   return { entry: queue.splice(idx, 1)[0], remaining: queue.length };
 }
