@@ -550,7 +550,7 @@ const DELETE_WORKSPACE_DEF = {
 
 const CLONE_WORKSPACE_DEF = {
   name: 'clone_workspace',
-  description: 'Clone an existing workspace into a new one. Copies schema (tables, columns, views) and optionally documents and members. After cloning, automatically switches to the new workspace. Returns: { id, type:"workspace", slug, message }.',
+  description: 'Clone an existing workspace into a new one. This is a FULL copy: schema (tables, columns, views) AND ALL RECORDS travel with the same ids; connector configs travel with secrets stripped. Documents (includeDocuments) and members (includeMembers) are copied only when the flag is set (default false). After cloning, automatically switches to the new workspace. Returns: { id, type:"workspace", slug, message }.',
   inputSchema: {
     type: 'object',
     properties: {
