@@ -7,7 +7,7 @@
  * где кэпа не было: встроенный агент режет своё (runner.js
  * _compactToolResultRaw, 16000 символов). Логика здесь — копия runner-версии
  * с двумя отличиями:
- *   1) бюджет 60000 символов (лимит клиента ~100 КБ — оставлен запас);
+ *   1) бюджет 30000 символов — с запасом под токен-лимит клиента (~25k токенов);
  *   2) списки режутся ТОЛЬКО при переборе бюджета, а не по счёту (runner режет
  *      items>20 безусловно — для MCP это ломало бы легальные списки вроде
  *      get_lookup с 80 опциями).
@@ -22,7 +22,9 @@
  * Синхронизировать с backend/src/api/v2/modules/ai/agent/runner.js при смене
  * контракта (_truncated/_compacted) — там тот же конверт для встроенного агента.
  */
-const OUTPUT_MAX_CHARS = 60000;
+// 30k, а не 60k: клиент режет по ТОКЕНАМ (~25k), не по символам — живой замер
+// 19.10: конверт 55 КБ уезжал в файл, модель видела 2 КБ preview.
+const OUTPUT_MAX_CHARS = 30000;
 
 // Размер ответа pivot/aggregate/group растёт от кардинальности: offset не
 // помогает, лечится только сужением фильтра.
@@ -138,6 +140,29 @@ export function compactToolResult(toolName, result) {
       }
       fields = JSON.parse(out); // конверт уже собран — идёт в общий страж ниже
     }
+  }
+
+  // read_blob: continuation с ГОТОВЫМ offset (канон: hint = следующий вызов без
+  // арифметики на стороне модели). Метаданные целиком, режется только body.
+  if (!fields && typeof result?.content === 'string' && result?.path != null && result?.truncated === true) {
+    const meta = { ...result };
+    delete meta.content;
+    delete meta._compacted; // данные тула не перебивают честную пометку (канон F2)
+    const metaJson = JSON.stringify(meta, null, 2);
+    const textBudget = Math.max(OUTPUT_MAX_CHARS - metaJson.length - 200, 500);
+    let shown = result.content.slice(0, textBudget);
+    const build = (s) => JSON.stringify(envelope(toolName, {
+      _compacted: `Файл обрезан: показано ${fmtKb(s.length)} из ${fmtKb(result.content.length)}.`,
+      ...meta,
+      content: s,
+      _howToContinue: `Файл обрезан. Вызови read_blob снова с offset=${(Number(result.offset) || 0) + s.length} — продолжение с этого места.`,
+    }, raw.length));
+    let blobOut = build(shown);
+    while (blobOut.length > OUTPUT_MAX_CHARS && shown.length > 500) {
+      shown = shown.slice(0, Math.max(500, Math.floor(shown.length * OUTPUT_MAX_CHARS / blobOut.length) - 64));
+      blobOut = build(shown);
+    }
+    fields = JSON.parse(blobOut);
   }
 
   // Списки: держим префикс items, влезающий в бюджет вместе с прочими полями

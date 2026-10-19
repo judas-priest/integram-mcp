@@ -59,7 +59,20 @@ async function apiFetch(path, opts = {}, _retried = false) {
       return apiFetch(path, opts, true);
     }
     const text = await res.text().catch(() => '');
-    const err = new Error(`API ${opts.method || 'GET'} ${path} → ${res.status}: ${text}`);
+    // 502/503 — транзиентный сбой nginx/upstream: одиночный ретрай с паузой.
+    // ТОЛЬКО /ai/tool: он идемпотентен по callId (F9); прочие маршруты apiFetch —
+    // DELETE/clone/create workspaces — повторять нельзя (нет идемпотентности).
+    // 504 НЕ ретраится: upstream мог УСПЕШНО исполнить запрос и не уложиться в
+    // таймаут гейтвея — повтор создал бы второе действие.
+    if ((res.status === 502 || res.status === 503) && !_retried && path.endsWith('/ai/tool')) {
+      await new Promise((r) => setTimeout(r, 1500));
+      return apiFetch(path, opts, true);
+    }
+    // Сырой HTML гейтвея — шум для модели: семантический текст вместо простыни.
+    const isHtml = /^\s*</.test(text);
+    const err = new Error(isHtml
+      ? `API ${opts.method || 'GET'} ${path} → транзиентная ошибка бэкенда ${res.status}. Повтори вызов — отказ не связан с аргументами.`
+      : `API ${opts.method || 'GET'} ${path} → ${res.status}: ${text}`);
     // TD-065: тело отказа доезжает вместе с ошибкой — конвертация в isError
     // читает code/message/details из err.body, а не из текста «API … → 400: {…}».
     try { err.body = JSON.parse(text); } catch { /* не JSON — остаётся только текст */ }
