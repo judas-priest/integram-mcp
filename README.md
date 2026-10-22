@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/integram-mcp)](https://www.npmjs.com/package/integram-mcp)
 
-MCP-сервер для Integram — даёт доступ к 783 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
+MCP-сервер для Integram — даёт доступ к 823 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
 
 Работает с облачным Integram на **ai2o.online** или с локальным сервером.
 
@@ -15,7 +15,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=https://ai2o.online \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.161
+  -- npx -y integram-mcp@0.7.169
 ```
 
 Ставить ничего не нужно: `npx` скачает пакет сам.
@@ -49,7 +49,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=http://localhost:8081 \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.161
+  -- npx -y integram-mcp@0.7.169
 ```
 
 Удалить: `claude mcp remove integram`
@@ -63,7 +63,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.161"],
+      "args": ["-y", "integram-mcp@0.7.169"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -83,7 +83,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.161"],
+      "args": ["-y", "integram-mcp@0.7.169"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -174,8 +174,8 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 |---|---|---|
 | **workspace** | Файлы, коннекторы, участники, бэкапы, дашборды, вью, аудит, нормализатор, автоматизации, вебхуки, формы | 134 |
 | **pm** | Управление проектами: задачи, спринты, доски, бэклог, диаграммы | 77 |
+| **teamchat** | Сообщения, решения, метрики агентов, W-матрица, топики | 77 |
 | **portal** | Портал: конфиг, каталог, корзины, заказы, тикеты, KB, метрики, Telegram-боты | 67 |
-| **teamchat** | Сообщения, решения, метрики агентов, W-матрица, топики | 58 |
 | **docs** | Документы, блоки, версии, шаринг, папки, теги, шаблоны, PDF | 53 |
 | **nightcall** | Нормативная спецификация и проверяемая генерация: требования, обязательства, свидетельства, базовые линии | 44 |
 | **codespace** | Git-репозитории: ветки, коммиты, файлы, точечная правка (`patch_file`), pull requests; запись с `baseCommit` сливается с чужими изменениями вместо перезаписи | 41 |
@@ -187,10 +187,12 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 | **objects** | Перемещение, дублирование, переупорядочивание записей, корзина, обратные ссылки | 20 |
 | **agents** | Реестр внешних AI-агентов, делегирование | 16 |
 | **reports** | Отчёты: CRUD, колонки, JOIN, фильтры, экспорт | 16 |
+| **workflows** | Событийные процессы (ADR-036): состояние и биография объекта, запись события в append-only журнал | 16 |
 | **grants** | Роли, гранты, row-level правила (только admin) | 15 |
 | **presentations** | Презентации: PPTX-движок воркспейса (список, чтение, создание из outline, сохранение слайдов, meta и статусы, версии и откат, шаринг, экспорт PPTX/PDF, импорт PPTX, превью биндингов, удаление) | 15 |
 | **graph** | Граф данных: запросы, окрестности, кратчайший путь | 13 |
 | **kag** | Граф знаний: поиск, обход, вопрос-ответ, ввоз сущностей и связей | 13 |
+| **ai** | TTS и самонаблюдение AI: озвучка, список голосов, квота, расход, статистика, аудит, трейсы, провайдеры, модели | 10 |
 | **comments** | Комментарии и реакции к записям | 7 |
 | **video** | обучающие видео (сценарий→запись→озвучка→монтаж) | 6 |
 | **advisor** | Советы эксперта, возможности платформы | 5 |
@@ -199,13 +201,11 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 | **workspace-tools** | Инструменты уровня области: регистрация, правка, ввоз наборов | 5 |
 | **bulk** | Массовые операции: создание, обновление, удаление, AI-batch | 4 |
 | **dlp** | Контур защиты от утечек: DLP-правила воркспейса (список, создание, правка, удаление; только admin) | 4 |
-| **ai** | Синтез речи (TTS): озвучка текста, список голосов | 3 |
 | **finmodel** | Финмодели: посчитанная сетка по периодам и сценариям, граф зависимостей ячеек, подбор параметров (goal-seek) с записью решения | 3 |
 | **meetings** | Конвейер встреч (TG-запись → протокол → одобрение → задачи) | 3 |
 | **normalizer** | Разбор документов: запуск, состояние, подтверждение сопоставления | 3 |
 | **timeseries** | Временные ряды: запись, запрос, список источников | 3 |
 | **lookups** | Справочники: варианты для dropdown/ref | 2 |
-| **workflows** | Событийные процессы (ADR-036): состояние и биография объекта, запись события в append-only журнал | 2 |
 <!-- END:tool-groups -->
 
 Core активна сразу (21 tools). Остальные — через `search_tools`.
