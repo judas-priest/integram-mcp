@@ -419,7 +419,8 @@ async function loadWorkspaceTools(slug) {
 }
 
 // Built-in MCP tools handled locally — never load from backend to avoid duplicates
-const BUILT_IN_NAMES = new Set([
+// PM-948: экспорт — built-ins участвуют в каталоге did-you-mean подсказок.
+export const BUILT_IN_NAMES = new Set([
   'list_workspaces', 'switch_workspace', 'create_workspace',
   'delete_workspace', 'clone_workspace', 'search_tools', 'confirm_action',
 ]);
@@ -1615,8 +1616,10 @@ async function dispatchTool(request) {
   // Regular tool call → proxy to backend
   if (!activeTools.has(name)) {
     // PM-164: называем похожие инструменты, чтобы модель не подменяла имя.
-    const catalog = (allTools || []).map((t) => ({ name: t.name, group: t.group, description: t.description }));
-    const text = buildNotActiveText(name, catalog, [...activeTools]);
+    // PM-948: built-ins тоже в каталоге; для ветки unknown они считаются
+    // активными (всегда перехватываются раньше и до сюда не доходят точными именами).
+    const catalog = buildSuggestionCatalog(allTools);
+    const text = buildNotActiveText(name, catalog, [...activeTools, ...BUILT_IN_NAMES]);
     return { content: [{ type: 'text', text }], isError: true };
   }
 
@@ -2235,12 +2238,44 @@ export function buildSearchToolsText(p) {
 
 // ─── PM-164: similar-name guard ──────────────────────────────────────────────
 
+// PM-948: каталог для did-you-mean — built-ins прокси + backend-тулы.
+// Опечатка «create_workspce» должна подсказывать create_workspace, а не пустоту.
+export function buildSuggestionCatalog(allTools) {
+  return [
+    ...[...BUILT_IN_NAMES].map((n) => ({ name: n, group: 'builtin', description: '' })),
+    ...(allTools || []).map((t) => ({ name: t.name, group: t.group, description: t.description })),
+  ];
+}
+
 /**
- * Детерминированный поиск похожих имён: общие токены (по '_') или подстрока.
- * Сам запрошенный тул не предлагается. Сортировка: больше общих токенов — выше.
+ * PM-948: нормированная похожесть Левенштейна, формула difflib
+ * (m + n − dist) / (m + n). На подстановках чуть щедрее difflib
+ * (замена стоит 1, а не 2) — порог 0.6 компенсирует консервативно.
+ */
+function editSimilarity(a, b) {
+  const m = a.length;
+  const n = b.length;
+  if (!m || !n) return 0;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return (m + n - prev[n]) / (m + n);
+}
+
+const EDIT_SIMILARITY_THRESHOLD = 0.6;
+
+/**
+ * Детерминированный поиск похожих имён: общие токены (по '_'), подстрока
+ * или edit-похожесть ≥ 0.6 (PM-948). Сам запрошенный тул не предлагается.
+ * Сортировка: токен-совпадения (score ≥ 100) выше чисто edit-совпадений.
  */
 export function findSimilarTools(name, catalog, limit = 3) {
-  const tokens = (n) => n.split('_').filter(Boolean);
+  const tokens = (n) => String(n ?? '').split('_').filter(Boolean);
   const nameToks = new Set(tokens(name));
   const scored = [];
   for (const t of catalog) {
@@ -2250,8 +2285,10 @@ export function findSimilarTools(name, catalog, limit = 3) {
       if (nameToks.has(tok)) shared += 1;
       else if (t.name.includes(name) || name.includes(t.name)) shared += 1;
     }
-    if (shared === 0) continue;
-    scored.push({ tool: t, score: shared });
+    const edit = editSimilarity(String(name ?? ''), String(t.name ?? ''));
+    if (shared === 0 && edit < EDIT_SIMILARITY_THRESHOLD) continue;
+    const score = shared > 0 ? shared * 100 + Math.round(edit * 10) : Math.round(edit * 10);
+    scored.push({ tool: t, score });
   }
   scored.sort((a, b) => b.score - a.score || a.tool.name.localeCompare(b.tool.name));
   return scored.slice(0, limit).map((s) => s.tool);
@@ -2264,10 +2301,37 @@ export function findSimilarTools(name, catalog, limit = 3) {
 export function buildNotActiveText(name, catalog, activeNames) {
   // PM-103: имени нет в каталоге — это не «не активен», а «такого тула нет».
   // Общий текст «is not active» модель читает как «имя неверное, попробую соседнее».
+  // PM-948: неизвестное имя не отменяет близости — добавляем did-you-mean,
+  // чтобы эмиссия самоисправлялась вместо перебора соседних тулов.
   const known = catalog.some((t) => t.name === name);
   if (!known) {
-    return `Error: Unknown tool "${name}" — no such tool in the integram catalog. ` +
-      `Do NOT call a different tool instead. Check the name, or use search_tools to discover the right one.`;
+    const base = `Error: Unknown tool "${name}" — no such tool in the integram catalog. ` +
+      `Do NOT call a different tool instead.`;
+    const similar = name ? findSimilarTools(String(name), catalog) : [];
+    if (!similar.length) {
+      return base + ` Check the name, or use search_tools to discover the right one.`;
+    }
+    const label = (t) => (t.group ? `"${t.name}" (group "${t.group}")` : `"${t.name}"`);
+    const activeSet = new Set(activeNames);
+    const lines = [base];
+    const activeHits = similar.filter((t) => activeSet.has(t.name));
+    const inactiveHits = similar.filter((t) => !activeSet.has(t.name));
+    if (activeHits.length) {
+      lines.push(
+        `Did you mean: ${activeHits.map(label).join(', ')}? ` +
+          `It IS ACTIVE — if that is what you meant, call it by its exact name. Do NOT guess other tools.`,
+      );
+    }
+    if (inactiveHits.length) {
+      const groups = [...new Set(inactiveHits.map((t) => t.group).filter(Boolean))];
+      lines.push(
+        `Did you mean: ${inactiveHits.map(label).join(', ')}? ` +
+          `If one of these is what you meant, activate its group first: ` +
+          groups.map((g) => `search_tools("${g}")`).join(' or ') +
+          ` — then call the tool by its exact name.`,
+      );
+    }
+    return lines.join('\n');
   }
   const similar = findSimilarTools(name, catalog);
   if (!similar.length) {
