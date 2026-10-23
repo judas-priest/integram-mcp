@@ -1078,7 +1078,7 @@ export const EN_DESCRIPTIONS = {
   update_automation: 'Update an automation: name, trigger, condition, actions, enabled (requires confirmation). Returns: { id, type:"automation", message }.',
   trigger_automation: 'Run an automation manually (requires confirmation). Returns: { id, type:"automation", message }.',
   search_prices: 'Find product prices on marketplaces. Returns [{name, price, url, source}]. Sources: komus (office supplies), wildberries (general), samson (building materials), yandex-market (general), megamarket (general), lemanapro (building materials, requires home proxy), price-ru (general aggregator), petrovich (building materials). Returns: { items, query, source }. Call once per source.',
-  run_script: 'Execute JavaScript in an isolated sandbox (isolated-vm). Available globals: row (current record), fetch(url,opts), ai(prompt,model?), output(value), setField(reqId,value) (requires objectId), query(typeId,opts) (returns metadata, not full fields), getRecord(id), createRecord(typeId,{name,fields}), updateRecord(id,{fields}), deleteRecord(id), browse(query,source?) (price search), console.log(), JSON, Math, Date. Limits: 128MB RAM, 60s timeout, rate limits on calls. Returns: { value, fields, logs }. (requires confirmation); available to admin/owner only, workspace secrets are injected only by names mentioned in the script',
+  run_script: 'Execute JavaScript in an isolated sandbox (isolated-vm). Available globals: row (current record), fetch(url,opts), ai(prompt,model?), output(value), setField(reqId,value) (requires objectId), query(typeId,opts) (returns metadata, not full fields), getRecord(id), createRecord(typeId,{name,fields}), updateRecord(id,{fields}), deleteRecord(id), browse(query,source?) (price search), console.log(), JSON, Math, Date. Limits: 128MB RAM, 60s timeout. Budget: 50 mutations and 30 queries per call (SANDBOX_PROFILES.automation); exceeding it makes the script fail, everything written before the failure is kept, and the error is returned in script_result.error. Returns: { value, fields, logs }. (requires confirmation); available to admin/owner only, workspace secrets are injected only by names mentioned in the script',
   get_automation_runs: 'Show the run history of an automation.',
   // Webhooks update
   update_webhook: 'Update a webhook: URL, events, enabled (requires confirmation). Returns: { id, type:"webhook", message }.',
@@ -1259,6 +1259,7 @@ export const EN_DESCRIPTIONS = {
   list_branches: 'List repository branches. Returns: { items: [branchName, ...], total }.',
   create_branch: 'Create a new branch in a repository. Returns: { created: true, name, fromRef }.',
   delete_branch: 'Delete a repository branch. The default branch cannot be deleted. Returns: { deleted: true, name }.',
+  ff_push: 'Fast-forward a branch to an existing commit with server-side compare-and-swap. The branch moves ONLY if its current tip equals expectedBase AND commit is a descendant (fast-forward). No merge, no history rewrite. Stale branch -> REF_STALE (409, details.currentBase carries the fresh sha); not a fast-forward -> NOT_FAST_FORWARD (409). Use instead of create_pr->merge_pr when a branch just needs to be advanced. Returns: { ok, slug, branch, old, new }.',
   list_tags: 'List repository tags, newest first. Returns: { items: [{ name, sha, date }] }.',
   create_tag: 'Create a lightweight tag on a branch or commit. Returns: { name, sha, message }.',
   delete_tag: 'Delete a repository tag. Irreversible. Returns: { deleted: true, message }.',
@@ -1977,7 +1978,7 @@ async function handleCloneWorkspace({ sourceSlug, name, slug, includeDocuments, 
     }
 
     return {
-      content: [{ type: 'text', text: `Workspace "${sourceSlug}" cloned into "${ws.name}" (slug: ${ws.slug}). Automatically switched to it. ${activeTools.size} core tools loaded.${gaps.length ? ' ' + gaps.join(' ') : ''}` }],
+      content: [{ type: 'text', text: `Workspace "${sourceSlug}" cloned into "${ws.name}" (id: ${ws.id}, slug: ${ws.slug}). Automatically switched to it. ${activeTools.size} core tools loaded.${gaps.length ? ' ' + gaps.join(' ') : ''}` }],
     };
   } catch (err) {
     return { content: [{ type: 'text', text: `Error cloning workspace: ${err.message}` }], isError: true };
