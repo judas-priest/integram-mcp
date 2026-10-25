@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/integram-mcp)](https://www.npmjs.com/package/integram-mcp)
 
-MCP-сервер для Integram — даёт доступ к 824 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
+MCP-сервер для Integram — даёт доступ к 808 инструментам (таблицы, документы, отчёты, автоматизации, портал, Telegram-боты, граф знаний и т.д.) из Claude Code, Claude Desktop и Cursor.
 
 Работает с облачным Integram на **ai2o.online** или с локальным сервером.
 
@@ -15,7 +15,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=https://ai2o.online \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.175
+  -- npx -y integram-mcp@0.7.176
 ```
 
 Ставить ничего не нужно: `npx` скачает пакет сам.
@@ -49,7 +49,7 @@ claude mcp add integram \
   -e INTEGRAM_URL=http://localhost:8081 \
   -e INTEGRAM_EMAIL=you@example.com \
   -e INTEGRAM_PASSWORD=secret \
-  -- npx -y integram-mcp@0.7.175
+  -- npx -y integram-mcp@0.7.176
 ```
 
 Удалить: `claude mcp remove integram`
@@ -63,7 +63,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.175"],
+      "args": ["-y", "integram-mcp@0.7.176"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -83,7 +83,7 @@ claude mcp add integram \
   "mcpServers": {
     "integram": {
       "command": "npx",
-      "args": ["-y", "integram-mcp@0.7.175"],
+      "args": ["-y", "integram-mcp@0.7.176"],
       "env": {
         "INTEGRAM_URL": "https://ai2o.online",
         "INTEGRAM_EMAIL": "you@example.com",
@@ -173,9 +173,9 @@ claude mcp add integram -e INTEGRAM_URL=... -e INTEGRAM_EMAIL=... -e INTEGRAM_PA
 | Группа | Что делает | Кол-во |
 |---|---|---|
 | **workspace** | Файлы, коннекторы, участники, бэкапы, дашборды, вью, аудит, нормализатор, автоматизации, вебхуки, формы | 134 |
-| **pm** | Управление проектами: задачи, спринты, доски, бэклог, диаграммы | 77 |
 | **teamchat** | Сообщения, решения, метрики агентов, W-матрица, топики | 77 |
 | **portal** | Портал: конфиг, каталог, корзины, заказы, тикеты, KB, метрики, Telegram-боты | 67 |
+| **pm** | Управление проектами: задачи, спринты, доски, бэклог, диаграммы | 61 |
 | **docs** | Документы, блоки, версии, шаринг, папки, теги, шаблоны, PDF | 53 |
 | **nightcall** | Нормативная спецификация и проверяемая генерация: требования, обязательства, свидетельства, базовые линии | 44 |
 | **codespace** | Git-репозитории: ветки, коммиты, файлы, точечная правка (`patch_file`), pull requests; запись с `baseCommit` сливается с чужими изменениями вместо перезаписи | 42 |
